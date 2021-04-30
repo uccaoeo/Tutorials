@@ -1,0 +1,2982 @@
+{
+  "nbformat": 4,
+  "nbformat_minor": 0,
+  "metadata": {
+    "language_info": {
+      "name": "python",
+      "version": "3.7.10",
+      "mimetype": "text/x-python",
+      "codemirror_mode": {
+        "name": "ipython",
+        "version": 3
+      },
+      "pygments_lexer": "ipython3",
+      "nbconvert_exporter": "python",
+      "file_extension": ".py"
+    },
+    "kernelspec": {
+      "language": "python",
+      "display_name": "Python 3",
+      "name": "python3"
+    },
+    "colab": {
+      "name": "CURRENT_titanic.ipynb",
+      "provenance": [],
+      "include_colab_link": true
+    }
+  },
+  "cells": [
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "view-in-github",
+        "colab_type": "text"
+      },
+      "source": [
+        "<a href=\"https://colab.research.google.com/github/uccaoeo/Tutorials/blob/master/Titanic_modifiedipynb\" target=\"_parent\"><img src=\"https://colab.research.google.com/assets/colab-badge.svg\" alt=\"Open In Colab\"/></a>"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "_uuid": "8f2839f25d086af736a60e9eeb907d3b93b6e0e5",
+        "_cell_guid": "b1076dfc-b9ad-4769-8c92-a6c4dae69d19",
+        "trusted": true,
+        "id": "-hwYrDcf01HR"
+      },
+      "source": [
+        "# This Python 3 environment comes with many helpful analytics libraries installed\n",
+        "# It is defined by the kaggle/python Docker image: https://github.com/kaggle/docker-python\n",
+        "# For example, here's several helpful packages to load\n",
+        "\n",
+        "import numpy as np # linear algebra\n",
+        "import pandas as pd # data processing, CSV file I/O (e.g. pd.read_csv)\n",
+        "from sklearn.compose import make_column_transformer\n",
+        "from sklearn.preprocessing import OneHotEncoder\n",
+        "from sklearn.preprocessing import LabelEncoder\n",
+        "from sklearn.pipeline import make_pipeline\n",
+        "from sklearn.model_selection import cross_val_score \n",
+        "from sklearn.preprocessing import StandardScaler\n",
+        "from sklearn.linear_model import LogisticRegression\n",
+        "from sklearn.compose import ColumnTransformer\n",
+        "from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier, ExtraTreesClassifier, VotingClassifier\n",
+        "from sklearn.tree import DecisionTreeClassifier\n",
+        "from sklearn.svm import SVC\n",
+        "from sklearn.model_selection import GridSearchCV, cross_val_score, StratifiedKFold\n",
+        "import matplotlib.pyplot as plt\n",
+        "import seaborn as sns\n",
+        "%matplotlib inline\n",
+        "from google.colab import files\n",
+        "import io\n",
+        "\n",
+        "\n",
+        "\n",
+        "# Input data files are available in the read-only \"../input/\" directory\n",
+        "# For example, running this (by clicking run or pressing Shift+Enter) will list all files under the input directory\n",
+        "\n",
+        "\n",
+        "\n",
+        "# You can write up to 20GB to the current directory (/kaggle/working/) that gets preserved as output when you create a version using \"Save & Run All\" \n",
+        "# You can also write temporary files to /kaggle/temp/, but they won't be saved outside of the current session"
+      ],
+      "execution_count": 6,
+      "outputs": []
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "JZn56vrD01Hs"
+      },
+      "source": [
+        "How a Typical Submission looks like...This will brief us about our outcome"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "trusted": true,
+        "colab": {
+          "resources": {
+            "http://localhost:8080/nbextensions/google.colab/files.js": {
+              "data": "Ly8gQ29weXJpZ2h0IDIwMTcgR29vZ2xlIExMQwovLwovLyBMaWNlbnNlZCB1bmRlciB0aGUgQXBhY2hlIExpY2Vuc2UsIFZlcnNpb24gMi4wICh0aGUgIkxpY2Vuc2UiKTsKLy8geW91IG1heSBub3QgdXNlIHRoaXMgZmlsZSBleGNlcHQgaW4gY29tcGxpYW5jZSB3aXRoIHRoZSBMaWNlbnNlLgovLyBZb3UgbWF5IG9idGFpbiBhIGNvcHkgb2YgdGhlIExpY2Vuc2UgYXQKLy8KLy8gICAgICBodHRwOi8vd3d3LmFwYWNoZS5vcmcvbGljZW5zZXMvTElDRU5TRS0yLjAKLy8KLy8gVW5sZXNzIHJlcXVpcmVkIGJ5IGFwcGxpY2FibGUgbGF3IG9yIGFncmVlZCB0byBpbiB3cml0aW5nLCBzb2Z0d2FyZQovLyBkaXN0cmlidXRlZCB1bmRlciB0aGUgTGljZW5zZSBpcyBkaXN0cmlidXRlZCBvbiBhbiAiQVMgSVMiIEJBU0lTLAovLyBXSVRIT1VUIFdBUlJBTlRJRVMgT1IgQ09ORElUSU9OUyBPRiBBTlkgS0lORCwgZWl0aGVyIGV4cHJlc3Mgb3IgaW1wbGllZC4KLy8gU2VlIHRoZSBMaWNlbnNlIGZvciB0aGUgc3BlY2lmaWMgbGFuZ3VhZ2UgZ292ZXJuaW5nIHBlcm1pc3Npb25zIGFuZAovLyBsaW1pdGF0aW9ucyB1bmRlciB0aGUgTGljZW5zZS4KCi8qKgogKiBAZmlsZW92ZXJ2aWV3IEhlbHBlcnMgZm9yIGdvb2dsZS5jb2xhYiBQeXRob24gbW9kdWxlLgogKi8KKGZ1bmN0aW9uKHNjb3BlKSB7CmZ1bmN0aW9uIHNwYW4odGV4dCwgc3R5bGVBdHRyaWJ1dGVzID0ge30pIHsKICBjb25zdCBlbGVtZW50ID0gZG9jdW1lbnQuY3JlYXRlRWxlbWVudCgnc3BhbicpOwogIGVsZW1lbnQudGV4dENvbnRlbnQgPSB0ZXh0OwogIGZvciAoY29uc3Qga2V5IG9mIE9iamVjdC5rZXlzKHN0eWxlQXR0cmlidXRlcykpIHsKICAgIGVsZW1lbnQuc3R5bGVba2V5XSA9IHN0eWxlQXR0cmlidXRlc1trZXldOwogIH0KICByZXR1cm4gZWxlbWVudDsKfQoKLy8gTWF4IG51bWJlciBvZiBieXRlcyB3aGljaCB3aWxsIGJlIHVwbG9hZGVkIGF0IGEgdGltZS4KY29uc3QgTUFYX1BBWUxPQURfU0laRSA9IDEwMCAqIDEwMjQ7CgpmdW5jdGlvbiBfdXBsb2FkRmlsZXMoaW5wdXRJZCwgb3V0cHV0SWQpIHsKICBjb25zdCBzdGVwcyA9IHVwbG9hZEZpbGVzU3RlcChpbnB1dElkLCBvdXRwdXRJZCk7CiAgY29uc3Qgb3V0cHV0RWxlbWVudCA9IGRvY3VtZW50LmdldEVsZW1lbnRCeUlkKG91dHB1dElkKTsKICAvLyBDYWNoZSBzdGVwcyBvbiB0aGUgb3V0cHV0RWxlbWVudCB0byBtYWtlIGl0IGF2YWlsYWJsZSBmb3IgdGhlIG5leHQgY2FsbAogIC8vIHRvIHVwbG9hZEZpbGVzQ29udGludWUgZnJvbSBQeXRob24uCiAgb3V0cHV0RWxlbWVudC5zdGVwcyA9IHN0ZXBzOwoKICByZXR1cm4gX3VwbG9hZEZpbGVzQ29udGludWUob3V0cHV0SWQpOwp9CgovLyBUaGlzIGlzIHJvdWdobHkgYW4gYXN5bmMgZ2VuZXJhdG9yIChub3Qgc3VwcG9ydGVkIGluIHRoZSBicm93c2VyIHlldCksCi8vIHdoZXJlIHRoZXJlIGFyZSBtdWx0aXBsZSBhc3luY2hyb25vdXMgc3RlcHMgYW5kIHRoZSBQeXRob24gc2lkZSBpcyBnb2luZwovLyB0byBwb2xsIGZvciBjb21wbGV0aW9uIG9mIGVhY2ggc3RlcC4KLy8gVGhpcyB1c2VzIGEgUHJvbWlzZSB0byBibG9jayB0aGUgcHl0aG9uIHNpZGUgb24gY29tcGxldGlvbiBvZiBlYWNoIHN0ZXAsCi8vIHRoZW4gcGFzc2VzIHRoZSByZXN1bHQgb2YgdGhlIHByZXZpb3VzIHN0ZXAgYXMgdGhlIGlucHV0IHRvIHRoZSBuZXh0IHN0ZXAuCmZ1bmN0aW9uIF91cGxvYWRGaWxlc0NvbnRpbnVlKG91dHB1dElkKSB7CiAgY29uc3Qgb3V0cHV0RWxlbWVudCA9IGRvY3VtZW50LmdldEVsZW1lbnRCeUlkKG91dHB1dElkKTsKICBjb25zdCBzdGVwcyA9IG91dHB1dEVsZW1lbnQuc3RlcHM7CgogIGNvbnN0IG5leHQgPSBzdGVwcy5uZXh0KG91dHB1dEVsZW1lbnQubGFzdFByb21pc2VWYWx1ZSk7CiAgcmV0dXJuIFByb21pc2UucmVzb2x2ZShuZXh0LnZhbHVlLnByb21pc2UpLnRoZW4oKHZhbHVlKSA9PiB7CiAgICAvLyBDYWNoZSB0aGUgbGFzdCBwcm9taXNlIHZhbHVlIHRvIG1ha2UgaXQgYXZhaWxhYmxlIHRvIHRoZSBuZXh0CiAgICAvLyBzdGVwIG9mIHRoZSBnZW5lcmF0b3IuCiAgICBvdXRwdXRFbGVtZW50Lmxhc3RQcm9taXNlVmFsdWUgPSB2YWx1ZTsKICAgIHJldHVybiBuZXh0LnZhbHVlLnJlc3BvbnNlOwogIH0pOwp9CgovKioKICogR2VuZXJhdG9yIGZ1bmN0aW9uIHdoaWNoIGlzIGNhbGxlZCBiZXR3ZWVuIGVhY2ggYXN5bmMgc3RlcCBvZiB0aGUgdXBsb2FkCiAqIHByb2Nlc3MuCiAqIEBwYXJhbSB7c3RyaW5nfSBpbnB1dElkIEVsZW1lbnQgSUQgb2YgdGhlIGlucHV0IGZpbGUgcGlja2VyIGVsZW1lbnQuCiAqIEBwYXJhbSB7c3RyaW5nfSBvdXRwdXRJZCBFbGVtZW50IElEIG9mIHRoZSBvdXRwdXQgZGlzcGxheS4KICogQHJldHVybiB7IUl0ZXJhYmxlPCFPYmplY3Q+fSBJdGVyYWJsZSBvZiBuZXh0IHN0ZXBzLgogKi8KZnVuY3Rpb24qIHVwbG9hZEZpbGVzU3RlcChpbnB1dElkLCBvdXRwdXRJZCkgewogIGNvbnN0IGlucHV0RWxlbWVudCA9IGRvY3VtZW50LmdldEVsZW1lbnRCeUlkKGlucHV0SWQpOwogIGlucHV0RWxlbWVudC5kaXNhYmxlZCA9IGZhbHNlOwoKICBjb25zdCBvdXRwdXRFbGVtZW50ID0gZG9jdW1lbnQuZ2V0RWxlbWVudEJ5SWQob3V0cHV0SWQpOwogIG91dHB1dEVsZW1lbnQuaW5uZXJIVE1MID0gJyc7CgogIGNvbnN0IHBpY2tlZFByb21pc2UgPSBuZXcgUHJvbWlzZSgocmVzb2x2ZSkgPT4gewogICAgaW5wdXRFbGVtZW50LmFkZEV2ZW50TGlzdGVuZXIoJ2NoYW5nZScsIChlKSA9PiB7CiAgICAgIHJlc29sdmUoZS50YXJnZXQuZmlsZXMpOwogICAgfSk7CiAgfSk7CgogIGNvbnN0IGNhbmNlbCA9IGRvY3VtZW50LmNyZWF0ZUVsZW1lbnQoJ2J1dHRvbicpOwogIGlucHV0RWxlbWVudC5wYXJlbnRFbGVtZW50LmFwcGVuZENoaWxkKGNhbmNlbCk7CiAgY2FuY2VsLnRleHRDb250ZW50ID0gJ0NhbmNlbCB1cGxvYWQnOwogIGNvbnN0IGNhbmNlbFByb21pc2UgPSBuZXcgUHJvbWlzZSgocmVzb2x2ZSkgPT4gewogICAgY2FuY2VsLm9uY2xpY2sgPSAoKSA9PiB7CiAgICAgIHJlc29sdmUobnVsbCk7CiAgICB9OwogIH0pOwoKICAvLyBXYWl0IGZvciB0aGUgdXNlciB0byBwaWNrIHRoZSBmaWxlcy4KICBjb25zdCBmaWxlcyA9IHlpZWxkIHsKICAgIHByb21pc2U6IFByb21pc2UucmFjZShbcGlja2VkUHJvbWlzZSwgY2FuY2VsUHJvbWlzZV0pLAogICAgcmVzcG9uc2U6IHsKICAgICAgYWN0aW9uOiAnc3RhcnRpbmcnLAogICAgfQogIH07CgogIGNhbmNlbC5yZW1vdmUoKTsKCiAgLy8gRGlzYWJsZSB0aGUgaW5wdXQgZWxlbWVudCBzaW5jZSBmdXJ0aGVyIHBpY2tzIGFyZSBub3QgYWxsb3dlZC4KICBpbnB1dEVsZW1lbnQuZGlzYWJsZWQgPSB0cnVlOwoKICBpZiAoIWZpbGVzKSB7CiAgICByZXR1cm4gewogICAgICByZXNwb25zZTogewogICAgICAgIGFjdGlvbjogJ2NvbXBsZXRlJywKICAgICAgfQogICAgfTsKICB9CgogIGZvciAoY29uc3QgZmlsZSBvZiBmaWxlcykgewogICAgY29uc3QgbGkgPSBkb2N1bWVudC5jcmVhdGVFbGVtZW50KCdsaScpOwogICAgbGkuYXBwZW5kKHNwYW4oZmlsZS5uYW1lLCB7Zm9udFdlaWdodDogJ2JvbGQnfSkpOwogICAgbGkuYXBwZW5kKHNwYW4oCiAgICAgICAgYCgke2ZpbGUudHlwZSB8fCAnbi9hJ30pIC0gJHtmaWxlLnNpemV9IGJ5dGVzLCBgICsKICAgICAgICBgbGFzdCBtb2RpZmllZDogJHsKICAgICAgICAgICAgZmlsZS5sYXN0TW9kaWZpZWREYXRlID8gZmlsZS5sYXN0TW9kaWZpZWREYXRlLnRvTG9jYWxlRGF0ZVN0cmluZygpIDoKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgJ24vYSd9IC0gYCkpOwogICAgY29uc3QgcGVyY2VudCA9IHNwYW4oJzAlIGRvbmUnKTsKICAgIGxpLmFwcGVuZENoaWxkKHBlcmNlbnQpOwoKICAgIG91dHB1dEVsZW1lbnQuYXBwZW5kQ2hpbGQobGkpOwoKICAgIGNvbnN0IGZpbGVEYXRhUHJvbWlzZSA9IG5ldyBQcm9taXNlKChyZXNvbHZlKSA9PiB7CiAgICAgIGNvbnN0IHJlYWRlciA9IG5ldyBGaWxlUmVhZGVyKCk7CiAgICAgIHJlYWRlci5vbmxvYWQgPSAoZSkgPT4gewogICAgICAgIHJlc29sdmUoZS50YXJnZXQucmVzdWx0KTsKICAgICAgfTsKICAgICAgcmVhZGVyLnJlYWRBc0FycmF5QnVmZmVyKGZpbGUpOwogICAgfSk7CiAgICAvLyBXYWl0IGZvciB0aGUgZGF0YSB0byBiZSByZWFkeS4KICAgIGxldCBmaWxlRGF0YSA9IHlpZWxkIHsKICAgICAgcHJvbWlzZTogZmlsZURhdGFQcm9taXNlLAogICAgICByZXNwb25zZTogewogICAgICAgIGFjdGlvbjogJ2NvbnRpbnVlJywKICAgICAgfQogICAgfTsKCiAgICAvLyBVc2UgYSBjaHVua2VkIHNlbmRpbmcgdG8gYXZvaWQgbWVzc2FnZSBzaXplIGxpbWl0cy4gU2VlIGIvNjIxMTU2NjAuCiAgICBsZXQgcG9zaXRpb24gPSAwOwogICAgd2hpbGUgKHBvc2l0aW9uIDwgZmlsZURhdGEuYnl0ZUxlbmd0aCkgewogICAgICBjb25zdCBsZW5ndGggPSBNYXRoLm1pbihmaWxlRGF0YS5ieXRlTGVuZ3RoIC0gcG9zaXRpb24sIE1BWF9QQVlMT0FEX1NJWkUpOwogICAgICBjb25zdCBjaHVuayA9IG5ldyBVaW50OEFycmF5KGZpbGVEYXRhLCBwb3NpdGlvbiwgbGVuZ3RoKTsKICAgICAgcG9zaXRpb24gKz0gbGVuZ3RoOwoKICAgICAgY29uc3QgYmFzZTY0ID0gYnRvYShTdHJpbmcuZnJvbUNoYXJDb2RlLmFwcGx5KG51bGwsIGNodW5rKSk7CiAgICAgIHlpZWxkIHsKICAgICAgICByZXNwb25zZTogewogICAgICAgICAgYWN0aW9uOiAnYXBwZW5kJywKICAgICAgICAgIGZpbGU6IGZpbGUubmFtZSwKICAgICAgICAgIGRhdGE6IGJhc2U2NCwKICAgICAgICB9LAogICAgICB9OwogICAgICBwZXJjZW50LnRleHRDb250ZW50ID0KICAgICAgICAgIGAke01hdGgucm91bmQoKHBvc2l0aW9uIC8gZmlsZURhdGEuYnl0ZUxlbmd0aCkgKiAxMDApfSUgZG9uZWA7CiAgICB9CiAgfQoKICAvLyBBbGwgZG9uZS4KICB5aWVsZCB7CiAgICByZXNwb25zZTogewogICAgICBhY3Rpb246ICdjb21wbGV0ZScsCiAgICB9CiAgfTsKfQoKc2NvcGUuZ29vZ2xlID0gc2NvcGUuZ29vZ2xlIHx8IHt9OwpzY29wZS5nb29nbGUuY29sYWIgPSBzY29wZS5nb29nbGUuY29sYWIgfHwge307CnNjb3BlLmdvb2dsZS5jb2xhYi5fZmlsZXMgPSB7CiAgX3VwbG9hZEZpbGVzLAogIF91cGxvYWRGaWxlc0NvbnRpbnVlLAp9Owp9KShzZWxmKTsK",
+              "ok": true,
+              "headers": [
+                [
+                  "content-type",
+                  "application/javascript"
+                ]
+              ],
+              "status": 200,
+              "status_text": ""
+            }
+          },
+          "base_uri": "https://localhost:8080/",
+          "height": 72
+        },
+        "id": "FChuLWoD01Ht",
+        "outputId": "0fa188a9-1869-4a9e-f43b-8a1c43e1aaca"
+      },
+      "source": [
+        "#check = pd.read_csv(r'C:\\Users\\hp\\Desktop\\My LECTURE\\DATA SCIENCE\\KAGGLE\\TITANIC PROJECT\\gender_submission.csv')\n",
+        "#check.head()\n",
+        "uploaded = files.upload()\n"
+      ],
+      "execution_count": 7,
+      "outputs": [
+        {
+          "output_type": "display_data",
+          "data": {
+            "text/html": [
+              "\n",
+              "     <input type=\"file\" id=\"files-e3e6a3a5-19d0-4274-8a9f-535ad2ffdb2a\" name=\"files[]\" multiple disabled\n",
+              "        style=\"border:none\" />\n",
+              "     <output id=\"result-e3e6a3a5-19d0-4274-8a9f-535ad2ffdb2a\">\n",
+              "      Upload widget is only available when the cell has been executed in the\n",
+              "      current browser session. Please rerun this cell to enable.\n",
+              "      </output>\n",
+              "      <script src=\"/nbextensions/google.colab/files.js\"></script> "
+            ],
+            "text/plain": [
+              "<IPython.core.display.HTML object>"
+            ]
+          },
+          "metadata": {
+            "tags": []
+          }
+        },
+        {
+          "output_type": "stream",
+          "text": [
+            "Saving gender_submission.csv to gender_submission (1).csv\n"
+          ],
+          "name": "stdout"
+        }
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "nxroZGM101Hu"
+      },
+      "source": [
+        "Let us examine the train dataset and view the first 5 samples"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/",
+          "height": 204
+        },
+        "id": "bYt2KwcP23bv",
+        "outputId": "b9ee5e3c-4203-443e-bcab-4c1a30224738"
+      },
+      "source": [
+        "check= pd.read_csv(io.BytesIO(uploaded['gender_submission.csv']))\n",
+        "check.head()"
+      ],
+      "execution_count": 9,
+      "outputs": [
+        {
+          "output_type": "execute_result",
+          "data": {
+            "text/html": [
+              "<div>\n",
+              "<style scoped>\n",
+              "    .dataframe tbody tr th:only-of-type {\n",
+              "        vertical-align: middle;\n",
+              "    }\n",
+              "\n",
+              "    .dataframe tbody tr th {\n",
+              "        vertical-align: top;\n",
+              "    }\n",
+              "\n",
+              "    .dataframe thead th {\n",
+              "        text-align: right;\n",
+              "    }\n",
+              "</style>\n",
+              "<table border=\"1\" class=\"dataframe\">\n",
+              "  <thead>\n",
+              "    <tr style=\"text-align: right;\">\n",
+              "      <th></th>\n",
+              "      <th>PassengerId</th>\n",
+              "      <th>Survived</th>\n",
+              "    </tr>\n",
+              "  </thead>\n",
+              "  <tbody>\n",
+              "    <tr>\n",
+              "      <th>0</th>\n",
+              "      <td>892</td>\n",
+              "      <td>0</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>1</th>\n",
+              "      <td>893</td>\n",
+              "      <td>1</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>2</th>\n",
+              "      <td>894</td>\n",
+              "      <td>0</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>3</th>\n",
+              "      <td>895</td>\n",
+              "      <td>0</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>4</th>\n",
+              "      <td>896</td>\n",
+              "      <td>1</td>\n",
+              "    </tr>\n",
+              "  </tbody>\n",
+              "</table>\n",
+              "</div>"
+            ],
+            "text/plain": [
+              "   PassengerId  Survived\n",
+              "0          892         0\n",
+              "1          893         1\n",
+              "2          894         0\n",
+              "3          895         0\n",
+              "4          896         1"
+            ]
+          },
+          "metadata": {
+            "tags": []
+          },
+          "execution_count": 9
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "trusted": true,
+        "colab": {
+          "resources": {
+            "http://localhost:8080/nbextensions/google.colab/files.js": {
+              "data": "Ly8gQ29weXJpZ2h0IDIwMTcgR29vZ2xlIExMQwovLwovLyBMaWNlbnNlZCB1bmRlciB0aGUgQXBhY2hlIExpY2Vuc2UsIFZlcnNpb24gMi4wICh0aGUgIkxpY2Vuc2UiKTsKLy8geW91IG1heSBub3QgdXNlIHRoaXMgZmlsZSBleGNlcHQgaW4gY29tcGxpYW5jZSB3aXRoIHRoZSBMaWNlbnNlLgovLyBZb3UgbWF5IG9idGFpbiBhIGNvcHkgb2YgdGhlIExpY2Vuc2UgYXQKLy8KLy8gICAgICBodHRwOi8vd3d3LmFwYWNoZS5vcmcvbGljZW5zZXMvTElDRU5TRS0yLjAKLy8KLy8gVW5sZXNzIHJlcXVpcmVkIGJ5IGFwcGxpY2FibGUgbGF3IG9yIGFncmVlZCB0byBpbiB3cml0aW5nLCBzb2Z0d2FyZQovLyBkaXN0cmlidXRlZCB1bmRlciB0aGUgTGljZW5zZSBpcyBkaXN0cmlidXRlZCBvbiBhbiAiQVMgSVMiIEJBU0lTLAovLyBXSVRIT1VUIFdBUlJBTlRJRVMgT1IgQ09ORElUSU9OUyBPRiBBTlkgS0lORCwgZWl0aGVyIGV4cHJlc3Mgb3IgaW1wbGllZC4KLy8gU2VlIHRoZSBMaWNlbnNlIGZvciB0aGUgc3BlY2lmaWMgbGFuZ3VhZ2UgZ292ZXJuaW5nIHBlcm1pc3Npb25zIGFuZAovLyBsaW1pdGF0aW9ucyB1bmRlciB0aGUgTGljZW5zZS4KCi8qKgogKiBAZmlsZW92ZXJ2aWV3IEhlbHBlcnMgZm9yIGdvb2dsZS5jb2xhYiBQeXRob24gbW9kdWxlLgogKi8KKGZ1bmN0aW9uKHNjb3BlKSB7CmZ1bmN0aW9uIHNwYW4odGV4dCwgc3R5bGVBdHRyaWJ1dGVzID0ge30pIHsKICBjb25zdCBlbGVtZW50ID0gZG9jdW1lbnQuY3JlYXRlRWxlbWVudCgnc3BhbicpOwogIGVsZW1lbnQudGV4dENvbnRlbnQgPSB0ZXh0OwogIGZvciAoY29uc3Qga2V5IG9mIE9iamVjdC5rZXlzKHN0eWxlQXR0cmlidXRlcykpIHsKICAgIGVsZW1lbnQuc3R5bGVba2V5XSA9IHN0eWxlQXR0cmlidXRlc1trZXldOwogIH0KICByZXR1cm4gZWxlbWVudDsKfQoKLy8gTWF4IG51bWJlciBvZiBieXRlcyB3aGljaCB3aWxsIGJlIHVwbG9hZGVkIGF0IGEgdGltZS4KY29uc3QgTUFYX1BBWUxPQURfU0laRSA9IDEwMCAqIDEwMjQ7CgpmdW5jdGlvbiBfdXBsb2FkRmlsZXMoaW5wdXRJZCwgb3V0cHV0SWQpIHsKICBjb25zdCBzdGVwcyA9IHVwbG9hZEZpbGVzU3RlcChpbnB1dElkLCBvdXRwdXRJZCk7CiAgY29uc3Qgb3V0cHV0RWxlbWVudCA9IGRvY3VtZW50LmdldEVsZW1lbnRCeUlkKG91dHB1dElkKTsKICAvLyBDYWNoZSBzdGVwcyBvbiB0aGUgb3V0cHV0RWxlbWVudCB0byBtYWtlIGl0IGF2YWlsYWJsZSBmb3IgdGhlIG5leHQgY2FsbAogIC8vIHRvIHVwbG9hZEZpbGVzQ29udGludWUgZnJvbSBQeXRob24uCiAgb3V0cHV0RWxlbWVudC5zdGVwcyA9IHN0ZXBzOwoKICByZXR1cm4gX3VwbG9hZEZpbGVzQ29udGludWUob3V0cHV0SWQpOwp9CgovLyBUaGlzIGlzIHJvdWdobHkgYW4gYXN5bmMgZ2VuZXJhdG9yIChub3Qgc3VwcG9ydGVkIGluIHRoZSBicm93c2VyIHlldCksCi8vIHdoZXJlIHRoZXJlIGFyZSBtdWx0aXBsZSBhc3luY2hyb25vdXMgc3RlcHMgYW5kIHRoZSBQeXRob24gc2lkZSBpcyBnb2luZwovLyB0byBwb2xsIGZvciBjb21wbGV0aW9uIG9mIGVhY2ggc3RlcC4KLy8gVGhpcyB1c2VzIGEgUHJvbWlzZSB0byBibG9jayB0aGUgcHl0aG9uIHNpZGUgb24gY29tcGxldGlvbiBvZiBlYWNoIHN0ZXAsCi8vIHRoZW4gcGFzc2VzIHRoZSByZXN1bHQgb2YgdGhlIHByZXZpb3VzIHN0ZXAgYXMgdGhlIGlucHV0IHRvIHRoZSBuZXh0IHN0ZXAuCmZ1bmN0aW9uIF91cGxvYWRGaWxlc0NvbnRpbnVlKG91dHB1dElkKSB7CiAgY29uc3Qgb3V0cHV0RWxlbWVudCA9IGRvY3VtZW50LmdldEVsZW1lbnRCeUlkKG91dHB1dElkKTsKICBjb25zdCBzdGVwcyA9IG91dHB1dEVsZW1lbnQuc3RlcHM7CgogIGNvbnN0IG5leHQgPSBzdGVwcy5uZXh0KG91dHB1dEVsZW1lbnQubGFzdFByb21pc2VWYWx1ZSk7CiAgcmV0dXJuIFByb21pc2UucmVzb2x2ZShuZXh0LnZhbHVlLnByb21pc2UpLnRoZW4oKHZhbHVlKSA9PiB7CiAgICAvLyBDYWNoZSB0aGUgbGFzdCBwcm9taXNlIHZhbHVlIHRvIG1ha2UgaXQgYXZhaWxhYmxlIHRvIHRoZSBuZXh0CiAgICAvLyBzdGVwIG9mIHRoZSBnZW5lcmF0b3IuCiAgICBvdXRwdXRFbGVtZW50Lmxhc3RQcm9taXNlVmFsdWUgPSB2YWx1ZTsKICAgIHJldHVybiBuZXh0LnZhbHVlLnJlc3BvbnNlOwogIH0pOwp9CgovKioKICogR2VuZXJhdG9yIGZ1bmN0aW9uIHdoaWNoIGlzIGNhbGxlZCBiZXR3ZWVuIGVhY2ggYXN5bmMgc3RlcCBvZiB0aGUgdXBsb2FkCiAqIHByb2Nlc3MuCiAqIEBwYXJhbSB7c3RyaW5nfSBpbnB1dElkIEVsZW1lbnQgSUQgb2YgdGhlIGlucHV0IGZpbGUgcGlja2VyIGVsZW1lbnQuCiAqIEBwYXJhbSB7c3RyaW5nfSBvdXRwdXRJZCBFbGVtZW50IElEIG9mIHRoZSBvdXRwdXQgZGlzcGxheS4KICogQHJldHVybiB7IUl0ZXJhYmxlPCFPYmplY3Q+fSBJdGVyYWJsZSBvZiBuZXh0IHN0ZXBzLgogKi8KZnVuY3Rpb24qIHVwbG9hZEZpbGVzU3RlcChpbnB1dElkLCBvdXRwdXRJZCkgewogIGNvbnN0IGlucHV0RWxlbWVudCA9IGRvY3VtZW50LmdldEVsZW1lbnRCeUlkKGlucHV0SWQpOwogIGlucHV0RWxlbWVudC5kaXNhYmxlZCA9IGZhbHNlOwoKICBjb25zdCBvdXRwdXRFbGVtZW50ID0gZG9jdW1lbnQuZ2V0RWxlbWVudEJ5SWQob3V0cHV0SWQpOwogIG91dHB1dEVsZW1lbnQuaW5uZXJIVE1MID0gJyc7CgogIGNvbnN0IHBpY2tlZFByb21pc2UgPSBuZXcgUHJvbWlzZSgocmVzb2x2ZSkgPT4gewogICAgaW5wdXRFbGVtZW50LmFkZEV2ZW50TGlzdGVuZXIoJ2NoYW5nZScsIChlKSA9PiB7CiAgICAgIHJlc29sdmUoZS50YXJnZXQuZmlsZXMpOwogICAgfSk7CiAgfSk7CgogIGNvbnN0IGNhbmNlbCA9IGRvY3VtZW50LmNyZWF0ZUVsZW1lbnQoJ2J1dHRvbicpOwogIGlucHV0RWxlbWVudC5wYXJlbnRFbGVtZW50LmFwcGVuZENoaWxkKGNhbmNlbCk7CiAgY2FuY2VsLnRleHRDb250ZW50ID0gJ0NhbmNlbCB1cGxvYWQnOwogIGNvbnN0IGNhbmNlbFByb21pc2UgPSBuZXcgUHJvbWlzZSgocmVzb2x2ZSkgPT4gewogICAgY2FuY2VsLm9uY2xpY2sgPSAoKSA9PiB7CiAgICAgIHJlc29sdmUobnVsbCk7CiAgICB9OwogIH0pOwoKICAvLyBXYWl0IGZvciB0aGUgdXNlciB0byBwaWNrIHRoZSBmaWxlcy4KICBjb25zdCBmaWxlcyA9IHlpZWxkIHsKICAgIHByb21pc2U6IFByb21pc2UucmFjZShbcGlja2VkUHJvbWlzZSwgY2FuY2VsUHJvbWlzZV0pLAogICAgcmVzcG9uc2U6IHsKICAgICAgYWN0aW9uOiAnc3RhcnRpbmcnLAogICAgfQogIH07CgogIGNhbmNlbC5yZW1vdmUoKTsKCiAgLy8gRGlzYWJsZSB0aGUgaW5wdXQgZWxlbWVudCBzaW5jZSBmdXJ0aGVyIHBpY2tzIGFyZSBub3QgYWxsb3dlZC4KICBpbnB1dEVsZW1lbnQuZGlzYWJsZWQgPSB0cnVlOwoKICBpZiAoIWZpbGVzKSB7CiAgICByZXR1cm4gewogICAgICByZXNwb25zZTogewogICAgICAgIGFjdGlvbjogJ2NvbXBsZXRlJywKICAgICAgfQogICAgfTsKICB9CgogIGZvciAoY29uc3QgZmlsZSBvZiBmaWxlcykgewogICAgY29uc3QgbGkgPSBkb2N1bWVudC5jcmVhdGVFbGVtZW50KCdsaScpOwogICAgbGkuYXBwZW5kKHNwYW4oZmlsZS5uYW1lLCB7Zm9udFdlaWdodDogJ2JvbGQnfSkpOwogICAgbGkuYXBwZW5kKHNwYW4oCiAgICAgICAgYCgke2ZpbGUudHlwZSB8fCAnbi9hJ30pIC0gJHtmaWxlLnNpemV9IGJ5dGVzLCBgICsKICAgICAgICBgbGFzdCBtb2RpZmllZDogJHsKICAgICAgICAgICAgZmlsZS5sYXN0TW9kaWZpZWREYXRlID8gZmlsZS5sYXN0TW9kaWZpZWREYXRlLnRvTG9jYWxlRGF0ZVN0cmluZygpIDoKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgJ24vYSd9IC0gYCkpOwogICAgY29uc3QgcGVyY2VudCA9IHNwYW4oJzAlIGRvbmUnKTsKICAgIGxpLmFwcGVuZENoaWxkKHBlcmNlbnQpOwoKICAgIG91dHB1dEVsZW1lbnQuYXBwZW5kQ2hpbGQobGkpOwoKICAgIGNvbnN0IGZpbGVEYXRhUHJvbWlzZSA9IG5ldyBQcm9taXNlKChyZXNvbHZlKSA9PiB7CiAgICAgIGNvbnN0IHJlYWRlciA9IG5ldyBGaWxlUmVhZGVyKCk7CiAgICAgIHJlYWRlci5vbmxvYWQgPSAoZSkgPT4gewogICAgICAgIHJlc29sdmUoZS50YXJnZXQucmVzdWx0KTsKICAgICAgfTsKICAgICAgcmVhZGVyLnJlYWRBc0FycmF5QnVmZmVyKGZpbGUpOwogICAgfSk7CiAgICAvLyBXYWl0IGZvciB0aGUgZGF0YSB0byBiZSByZWFkeS4KICAgIGxldCBmaWxlRGF0YSA9IHlpZWxkIHsKICAgICAgcHJvbWlzZTogZmlsZURhdGFQcm9taXNlLAogICAgICByZXNwb25zZTogewogICAgICAgIGFjdGlvbjogJ2NvbnRpbnVlJywKICAgICAgfQogICAgfTsKCiAgICAvLyBVc2UgYSBjaHVua2VkIHNlbmRpbmcgdG8gYXZvaWQgbWVzc2FnZSBzaXplIGxpbWl0cy4gU2VlIGIvNjIxMTU2NjAuCiAgICBsZXQgcG9zaXRpb24gPSAwOwogICAgd2hpbGUgKHBvc2l0aW9uIDwgZmlsZURhdGEuYnl0ZUxlbmd0aCkgewogICAgICBjb25zdCBsZW5ndGggPSBNYXRoLm1pbihmaWxlRGF0YS5ieXRlTGVuZ3RoIC0gcG9zaXRpb24sIE1BWF9QQVlMT0FEX1NJWkUpOwogICAgICBjb25zdCBjaHVuayA9IG5ldyBVaW50OEFycmF5KGZpbGVEYXRhLCBwb3NpdGlvbiwgbGVuZ3RoKTsKICAgICAgcG9zaXRpb24gKz0gbGVuZ3RoOwoKICAgICAgY29uc3QgYmFzZTY0ID0gYnRvYShTdHJpbmcuZnJvbUNoYXJDb2RlLmFwcGx5KG51bGwsIGNodW5rKSk7CiAgICAgIHlpZWxkIHsKICAgICAgICByZXNwb25zZTogewogICAgICAgICAgYWN0aW9uOiAnYXBwZW5kJywKICAgICAgICAgIGZpbGU6IGZpbGUubmFtZSwKICAgICAgICAgIGRhdGE6IGJhc2U2NCwKICAgICAgICB9LAogICAgICB9OwogICAgICBwZXJjZW50LnRleHRDb250ZW50ID0KICAgICAgICAgIGAke01hdGgucm91bmQoKHBvc2l0aW9uIC8gZmlsZURhdGEuYnl0ZUxlbmd0aCkgKiAxMDApfSUgZG9uZWA7CiAgICB9CiAgfQoKICAvLyBBbGwgZG9uZS4KICB5aWVsZCB7CiAgICByZXNwb25zZTogewogICAgICBhY3Rpb246ICdjb21wbGV0ZScsCiAgICB9CiAgfTsKfQoKc2NvcGUuZ29vZ2xlID0gc2NvcGUuZ29vZ2xlIHx8IHt9OwpzY29wZS5nb29nbGUuY29sYWIgPSBzY29wZS5nb29nbGUuY29sYWIgfHwge307CnNjb3BlLmdvb2dsZS5jb2xhYi5fZmlsZXMgPSB7CiAgX3VwbG9hZEZpbGVzLAogIF91cGxvYWRGaWxlc0NvbnRpbnVlLAp9Owp9KShzZWxmKTsK",
+              "ok": true,
+              "headers": [
+                [
+                  "content-type",
+                  "application/javascript"
+                ]
+              ],
+              "status": 200,
+              "status_text": ""
+            }
+          },
+          "base_uri": "https://localhost:8080/",
+          "height": 72
+        },
+        "id": "yXAqBR1C01Hv",
+        "outputId": "71de4520-3ce8-47a7-c61b-91e58ff5a701"
+      },
+      "source": [
+        "uploaded = files.upload()\n",
+        "\n",
+        "\n"
+      ],
+      "execution_count": 10,
+      "outputs": [
+        {
+          "output_type": "display_data",
+          "data": {
+            "text/html": [
+              "\n",
+              "     <input type=\"file\" id=\"files-6fdab4dc-825c-46df-b090-dc7da4593ca6\" name=\"files[]\" multiple disabled\n",
+              "        style=\"border:none\" />\n",
+              "     <output id=\"result-6fdab4dc-825c-46df-b090-dc7da4593ca6\">\n",
+              "      Upload widget is only available when the cell has been executed in the\n",
+              "      current browser session. Please rerun this cell to enable.\n",
+              "      </output>\n",
+              "      <script src=\"/nbextensions/google.colab/files.js\"></script> "
+            ],
+            "text/plain": [
+              "<IPython.core.display.HTML object>"
+            ]
+          },
+          "metadata": {
+            "tags": []
+          }
+        },
+        {
+          "output_type": "stream",
+          "text": [
+            "Saving train.csv to train.csv\n"
+          ],
+          "name": "stdout"
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/",
+          "height": 204
+        },
+        "id": "3tdhoRhn3PNF",
+        "outputId": "53d59d4b-5a49-4886-93c7-5db8419fe953"
+      },
+      "source": [
+        "train_df= pd.read_csv(io.BytesIO(uploaded['train.csv']))\n",
+        "train_df.tail()"
+      ],
+      "execution_count": 11,
+      "outputs": [
+        {
+          "output_type": "execute_result",
+          "data": {
+            "text/html": [
+              "<div>\n",
+              "<style scoped>\n",
+              "    .dataframe tbody tr th:only-of-type {\n",
+              "        vertical-align: middle;\n",
+              "    }\n",
+              "\n",
+              "    .dataframe tbody tr th {\n",
+              "        vertical-align: top;\n",
+              "    }\n",
+              "\n",
+              "    .dataframe thead th {\n",
+              "        text-align: right;\n",
+              "    }\n",
+              "</style>\n",
+              "<table border=\"1\" class=\"dataframe\">\n",
+              "  <thead>\n",
+              "    <tr style=\"text-align: right;\">\n",
+              "      <th></th>\n",
+              "      <th>PassengerId</th>\n",
+              "      <th>Survived</th>\n",
+              "      <th>Pclass</th>\n",
+              "      <th>Name</th>\n",
+              "      <th>Sex</th>\n",
+              "      <th>Age</th>\n",
+              "      <th>SibSp</th>\n",
+              "      <th>Parch</th>\n",
+              "      <th>Ticket</th>\n",
+              "      <th>Fare</th>\n",
+              "      <th>Cabin</th>\n",
+              "      <th>Embarked</th>\n",
+              "    </tr>\n",
+              "  </thead>\n",
+              "  <tbody>\n",
+              "    <tr>\n",
+              "      <th>886</th>\n",
+              "      <td>887</td>\n",
+              "      <td>0</td>\n",
+              "      <td>2</td>\n",
+              "      <td>Montvila, Rev. Juozas</td>\n",
+              "      <td>male</td>\n",
+              "      <td>27.0</td>\n",
+              "      <td>0</td>\n",
+              "      <td>0</td>\n",
+              "      <td>211536</td>\n",
+              "      <td>13.00</td>\n",
+              "      <td>NaN</td>\n",
+              "      <td>S</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>887</th>\n",
+              "      <td>888</td>\n",
+              "      <td>1</td>\n",
+              "      <td>1</td>\n",
+              "      <td>Graham, Miss. Margaret Edith</td>\n",
+              "      <td>female</td>\n",
+              "      <td>19.0</td>\n",
+              "      <td>0</td>\n",
+              "      <td>0</td>\n",
+              "      <td>112053</td>\n",
+              "      <td>30.00</td>\n",
+              "      <td>B42</td>\n",
+              "      <td>S</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>888</th>\n",
+              "      <td>889</td>\n",
+              "      <td>0</td>\n",
+              "      <td>3</td>\n",
+              "      <td>Johnston, Miss. Catherine Helen \"Carrie\"</td>\n",
+              "      <td>female</td>\n",
+              "      <td>NaN</td>\n",
+              "      <td>1</td>\n",
+              "      <td>2</td>\n",
+              "      <td>W./C. 6607</td>\n",
+              "      <td>23.45</td>\n",
+              "      <td>NaN</td>\n",
+              "      <td>S</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>889</th>\n",
+              "      <td>890</td>\n",
+              "      <td>1</td>\n",
+              "      <td>1</td>\n",
+              "      <td>Behr, Mr. Karl Howell</td>\n",
+              "      <td>male</td>\n",
+              "      <td>26.0</td>\n",
+              "      <td>0</td>\n",
+              "      <td>0</td>\n",
+              "      <td>111369</td>\n",
+              "      <td>30.00</td>\n",
+              "      <td>C148</td>\n",
+              "      <td>C</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>890</th>\n",
+              "      <td>891</td>\n",
+              "      <td>0</td>\n",
+              "      <td>3</td>\n",
+              "      <td>Dooley, Mr. Patrick</td>\n",
+              "      <td>male</td>\n",
+              "      <td>32.0</td>\n",
+              "      <td>0</td>\n",
+              "      <td>0</td>\n",
+              "      <td>370376</td>\n",
+              "      <td>7.75</td>\n",
+              "      <td>NaN</td>\n",
+              "      <td>Q</td>\n",
+              "    </tr>\n",
+              "  </tbody>\n",
+              "</table>\n",
+              "</div>"
+            ],
+            "text/plain": [
+              "     PassengerId  Survived  Pclass  ...   Fare Cabin  Embarked\n",
+              "886          887         0       2  ...  13.00   NaN         S\n",
+              "887          888         1       1  ...  30.00   B42         S\n",
+              "888          889         0       3  ...  23.45   NaN         S\n",
+              "889          890         1       1  ...  30.00  C148         C\n",
+              "890          891         0       3  ...   7.75   NaN         Q\n",
+              "\n",
+              "[5 rows x 12 columns]"
+            ]
+          },
+          "metadata": {
+            "tags": []
+          },
+          "execution_count": 11
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "trusted": true,
+        "colab": {
+          "resources": {
+            "http://localhost:8080/nbextensions/google.colab/files.js": {
+              "data": "Ly8gQ29weXJpZ2h0IDIwMTcgR29vZ2xlIExMQwovLwovLyBMaWNlbnNlZCB1bmRlciB0aGUgQXBhY2hlIExpY2Vuc2UsIFZlcnNpb24gMi4wICh0aGUgIkxpY2Vuc2UiKTsKLy8geW91IG1heSBub3QgdXNlIHRoaXMgZmlsZSBleGNlcHQgaW4gY29tcGxpYW5jZSB3aXRoIHRoZSBMaWNlbnNlLgovLyBZb3UgbWF5IG9idGFpbiBhIGNvcHkgb2YgdGhlIExpY2Vuc2UgYXQKLy8KLy8gICAgICBodHRwOi8vd3d3LmFwYWNoZS5vcmcvbGljZW5zZXMvTElDRU5TRS0yLjAKLy8KLy8gVW5sZXNzIHJlcXVpcmVkIGJ5IGFwcGxpY2FibGUgbGF3IG9yIGFncmVlZCB0byBpbiB3cml0aW5nLCBzb2Z0d2FyZQovLyBkaXN0cmlidXRlZCB1bmRlciB0aGUgTGljZW5zZSBpcyBkaXN0cmlidXRlZCBvbiBhbiAiQVMgSVMiIEJBU0lTLAovLyBXSVRIT1VUIFdBUlJBTlRJRVMgT1IgQ09ORElUSU9OUyBPRiBBTlkgS0lORCwgZWl0aGVyIGV4cHJlc3Mgb3IgaW1wbGllZC4KLy8gU2VlIHRoZSBMaWNlbnNlIGZvciB0aGUgc3BlY2lmaWMgbGFuZ3VhZ2UgZ292ZXJuaW5nIHBlcm1pc3Npb25zIGFuZAovLyBsaW1pdGF0aW9ucyB1bmRlciB0aGUgTGljZW5zZS4KCi8qKgogKiBAZmlsZW92ZXJ2aWV3IEhlbHBlcnMgZm9yIGdvb2dsZS5jb2xhYiBQeXRob24gbW9kdWxlLgogKi8KKGZ1bmN0aW9uKHNjb3BlKSB7CmZ1bmN0aW9uIHNwYW4odGV4dCwgc3R5bGVBdHRyaWJ1dGVzID0ge30pIHsKICBjb25zdCBlbGVtZW50ID0gZG9jdW1lbnQuY3JlYXRlRWxlbWVudCgnc3BhbicpOwogIGVsZW1lbnQudGV4dENvbnRlbnQgPSB0ZXh0OwogIGZvciAoY29uc3Qga2V5IG9mIE9iamVjdC5rZXlzKHN0eWxlQXR0cmlidXRlcykpIHsKICAgIGVsZW1lbnQuc3R5bGVba2V5XSA9IHN0eWxlQXR0cmlidXRlc1trZXldOwogIH0KICByZXR1cm4gZWxlbWVudDsKfQoKLy8gTWF4IG51bWJlciBvZiBieXRlcyB3aGljaCB3aWxsIGJlIHVwbG9hZGVkIGF0IGEgdGltZS4KY29uc3QgTUFYX1BBWUxPQURfU0laRSA9IDEwMCAqIDEwMjQ7CgpmdW5jdGlvbiBfdXBsb2FkRmlsZXMoaW5wdXRJZCwgb3V0cHV0SWQpIHsKICBjb25zdCBzdGVwcyA9IHVwbG9hZEZpbGVzU3RlcChpbnB1dElkLCBvdXRwdXRJZCk7CiAgY29uc3Qgb3V0cHV0RWxlbWVudCA9IGRvY3VtZW50LmdldEVsZW1lbnRCeUlkKG91dHB1dElkKTsKICAvLyBDYWNoZSBzdGVwcyBvbiB0aGUgb3V0cHV0RWxlbWVudCB0byBtYWtlIGl0IGF2YWlsYWJsZSBmb3IgdGhlIG5leHQgY2FsbAogIC8vIHRvIHVwbG9hZEZpbGVzQ29udGludWUgZnJvbSBQeXRob24uCiAgb3V0cHV0RWxlbWVudC5zdGVwcyA9IHN0ZXBzOwoKICByZXR1cm4gX3VwbG9hZEZpbGVzQ29udGludWUob3V0cHV0SWQpOwp9CgovLyBUaGlzIGlzIHJvdWdobHkgYW4gYXN5bmMgZ2VuZXJhdG9yIChub3Qgc3VwcG9ydGVkIGluIHRoZSBicm93c2VyIHlldCksCi8vIHdoZXJlIHRoZXJlIGFyZSBtdWx0aXBsZSBhc3luY2hyb25vdXMgc3RlcHMgYW5kIHRoZSBQeXRob24gc2lkZSBpcyBnb2luZwovLyB0byBwb2xsIGZvciBjb21wbGV0aW9uIG9mIGVhY2ggc3RlcC4KLy8gVGhpcyB1c2VzIGEgUHJvbWlzZSB0byBibG9jayB0aGUgcHl0aG9uIHNpZGUgb24gY29tcGxldGlvbiBvZiBlYWNoIHN0ZXAsCi8vIHRoZW4gcGFzc2VzIHRoZSByZXN1bHQgb2YgdGhlIHByZXZpb3VzIHN0ZXAgYXMgdGhlIGlucHV0IHRvIHRoZSBuZXh0IHN0ZXAuCmZ1bmN0aW9uIF91cGxvYWRGaWxlc0NvbnRpbnVlKG91dHB1dElkKSB7CiAgY29uc3Qgb3V0cHV0RWxlbWVudCA9IGRvY3VtZW50LmdldEVsZW1lbnRCeUlkKG91dHB1dElkKTsKICBjb25zdCBzdGVwcyA9IG91dHB1dEVsZW1lbnQuc3RlcHM7CgogIGNvbnN0IG5leHQgPSBzdGVwcy5uZXh0KG91dHB1dEVsZW1lbnQubGFzdFByb21pc2VWYWx1ZSk7CiAgcmV0dXJuIFByb21pc2UucmVzb2x2ZShuZXh0LnZhbHVlLnByb21pc2UpLnRoZW4oKHZhbHVlKSA9PiB7CiAgICAvLyBDYWNoZSB0aGUgbGFzdCBwcm9taXNlIHZhbHVlIHRvIG1ha2UgaXQgYXZhaWxhYmxlIHRvIHRoZSBuZXh0CiAgICAvLyBzdGVwIG9mIHRoZSBnZW5lcmF0b3IuCiAgICBvdXRwdXRFbGVtZW50Lmxhc3RQcm9taXNlVmFsdWUgPSB2YWx1ZTsKICAgIHJldHVybiBuZXh0LnZhbHVlLnJlc3BvbnNlOwogIH0pOwp9CgovKioKICogR2VuZXJhdG9yIGZ1bmN0aW9uIHdoaWNoIGlzIGNhbGxlZCBiZXR3ZWVuIGVhY2ggYXN5bmMgc3RlcCBvZiB0aGUgdXBsb2FkCiAqIHByb2Nlc3MuCiAqIEBwYXJhbSB7c3RyaW5nfSBpbnB1dElkIEVsZW1lbnQgSUQgb2YgdGhlIGlucHV0IGZpbGUgcGlja2VyIGVsZW1lbnQuCiAqIEBwYXJhbSB7c3RyaW5nfSBvdXRwdXRJZCBFbGVtZW50IElEIG9mIHRoZSBvdXRwdXQgZGlzcGxheS4KICogQHJldHVybiB7IUl0ZXJhYmxlPCFPYmplY3Q+fSBJdGVyYWJsZSBvZiBuZXh0IHN0ZXBzLgogKi8KZnVuY3Rpb24qIHVwbG9hZEZpbGVzU3RlcChpbnB1dElkLCBvdXRwdXRJZCkgewogIGNvbnN0IGlucHV0RWxlbWVudCA9IGRvY3VtZW50LmdldEVsZW1lbnRCeUlkKGlucHV0SWQpOwogIGlucHV0RWxlbWVudC5kaXNhYmxlZCA9IGZhbHNlOwoKICBjb25zdCBvdXRwdXRFbGVtZW50ID0gZG9jdW1lbnQuZ2V0RWxlbWVudEJ5SWQob3V0cHV0SWQpOwogIG91dHB1dEVsZW1lbnQuaW5uZXJIVE1MID0gJyc7CgogIGNvbnN0IHBpY2tlZFByb21pc2UgPSBuZXcgUHJvbWlzZSgocmVzb2x2ZSkgPT4gewogICAgaW5wdXRFbGVtZW50LmFkZEV2ZW50TGlzdGVuZXIoJ2NoYW5nZScsIChlKSA9PiB7CiAgICAgIHJlc29sdmUoZS50YXJnZXQuZmlsZXMpOwogICAgfSk7CiAgfSk7CgogIGNvbnN0IGNhbmNlbCA9IGRvY3VtZW50LmNyZWF0ZUVsZW1lbnQoJ2J1dHRvbicpOwogIGlucHV0RWxlbWVudC5wYXJlbnRFbGVtZW50LmFwcGVuZENoaWxkKGNhbmNlbCk7CiAgY2FuY2VsLnRleHRDb250ZW50ID0gJ0NhbmNlbCB1cGxvYWQnOwogIGNvbnN0IGNhbmNlbFByb21pc2UgPSBuZXcgUHJvbWlzZSgocmVzb2x2ZSkgPT4gewogICAgY2FuY2VsLm9uY2xpY2sgPSAoKSA9PiB7CiAgICAgIHJlc29sdmUobnVsbCk7CiAgICB9OwogIH0pOwoKICAvLyBXYWl0IGZvciB0aGUgdXNlciB0byBwaWNrIHRoZSBmaWxlcy4KICBjb25zdCBmaWxlcyA9IHlpZWxkIHsKICAgIHByb21pc2U6IFByb21pc2UucmFjZShbcGlja2VkUHJvbWlzZSwgY2FuY2VsUHJvbWlzZV0pLAogICAgcmVzcG9uc2U6IHsKICAgICAgYWN0aW9uOiAnc3RhcnRpbmcnLAogICAgfQogIH07CgogIGNhbmNlbC5yZW1vdmUoKTsKCiAgLy8gRGlzYWJsZSB0aGUgaW5wdXQgZWxlbWVudCBzaW5jZSBmdXJ0aGVyIHBpY2tzIGFyZSBub3QgYWxsb3dlZC4KICBpbnB1dEVsZW1lbnQuZGlzYWJsZWQgPSB0cnVlOwoKICBpZiAoIWZpbGVzKSB7CiAgICByZXR1cm4gewogICAgICByZXNwb25zZTogewogICAgICAgIGFjdGlvbjogJ2NvbXBsZXRlJywKICAgICAgfQogICAgfTsKICB9CgogIGZvciAoY29uc3QgZmlsZSBvZiBmaWxlcykgewogICAgY29uc3QgbGkgPSBkb2N1bWVudC5jcmVhdGVFbGVtZW50KCdsaScpOwogICAgbGkuYXBwZW5kKHNwYW4oZmlsZS5uYW1lLCB7Zm9udFdlaWdodDogJ2JvbGQnfSkpOwogICAgbGkuYXBwZW5kKHNwYW4oCiAgICAgICAgYCgke2ZpbGUudHlwZSB8fCAnbi9hJ30pIC0gJHtmaWxlLnNpemV9IGJ5dGVzLCBgICsKICAgICAgICBgbGFzdCBtb2RpZmllZDogJHsKICAgICAgICAgICAgZmlsZS5sYXN0TW9kaWZpZWREYXRlID8gZmlsZS5sYXN0TW9kaWZpZWREYXRlLnRvTG9jYWxlRGF0ZVN0cmluZygpIDoKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgJ24vYSd9IC0gYCkpOwogICAgY29uc3QgcGVyY2VudCA9IHNwYW4oJzAlIGRvbmUnKTsKICAgIGxpLmFwcGVuZENoaWxkKHBlcmNlbnQpOwoKICAgIG91dHB1dEVsZW1lbnQuYXBwZW5kQ2hpbGQobGkpOwoKICAgIGNvbnN0IGZpbGVEYXRhUHJvbWlzZSA9IG5ldyBQcm9taXNlKChyZXNvbHZlKSA9PiB7CiAgICAgIGNvbnN0IHJlYWRlciA9IG5ldyBGaWxlUmVhZGVyKCk7CiAgICAgIHJlYWRlci5vbmxvYWQgPSAoZSkgPT4gewogICAgICAgIHJlc29sdmUoZS50YXJnZXQucmVzdWx0KTsKICAgICAgfTsKICAgICAgcmVhZGVyLnJlYWRBc0FycmF5QnVmZmVyKGZpbGUpOwogICAgfSk7CiAgICAvLyBXYWl0IGZvciB0aGUgZGF0YSB0byBiZSByZWFkeS4KICAgIGxldCBmaWxlRGF0YSA9IHlpZWxkIHsKICAgICAgcHJvbWlzZTogZmlsZURhdGFQcm9taXNlLAogICAgICByZXNwb25zZTogewogICAgICAgIGFjdGlvbjogJ2NvbnRpbnVlJywKICAgICAgfQogICAgfTsKCiAgICAvLyBVc2UgYSBjaHVua2VkIHNlbmRpbmcgdG8gYXZvaWQgbWVzc2FnZSBzaXplIGxpbWl0cy4gU2VlIGIvNjIxMTU2NjAuCiAgICBsZXQgcG9zaXRpb24gPSAwOwogICAgd2hpbGUgKHBvc2l0aW9uIDwgZmlsZURhdGEuYnl0ZUxlbmd0aCkgewogICAgICBjb25zdCBsZW5ndGggPSBNYXRoLm1pbihmaWxlRGF0YS5ieXRlTGVuZ3RoIC0gcG9zaXRpb24sIE1BWF9QQVlMT0FEX1NJWkUpOwogICAgICBjb25zdCBjaHVuayA9IG5ldyBVaW50OEFycmF5KGZpbGVEYXRhLCBwb3NpdGlvbiwgbGVuZ3RoKTsKICAgICAgcG9zaXRpb24gKz0gbGVuZ3RoOwoKICAgICAgY29uc3QgYmFzZTY0ID0gYnRvYShTdHJpbmcuZnJvbUNoYXJDb2RlLmFwcGx5KG51bGwsIGNodW5rKSk7CiAgICAgIHlpZWxkIHsKICAgICAgICByZXNwb25zZTogewogICAgICAgICAgYWN0aW9uOiAnYXBwZW5kJywKICAgICAgICAgIGZpbGU6IGZpbGUubmFtZSwKICAgICAgICAgIGRhdGE6IGJhc2U2NCwKICAgICAgICB9LAogICAgICB9OwogICAgICBwZXJjZW50LnRleHRDb250ZW50ID0KICAgICAgICAgIGAke01hdGgucm91bmQoKHBvc2l0aW9uIC8gZmlsZURhdGEuYnl0ZUxlbmd0aCkgKiAxMDApfSUgZG9uZWA7CiAgICB9CiAgfQoKICAvLyBBbGwgZG9uZS4KICB5aWVsZCB7CiAgICByZXNwb25zZTogewogICAgICBhY3Rpb246ICdjb21wbGV0ZScsCiAgICB9CiAgfTsKfQoKc2NvcGUuZ29vZ2xlID0gc2NvcGUuZ29vZ2xlIHx8IHt9OwpzY29wZS5nb29nbGUuY29sYWIgPSBzY29wZS5nb29nbGUuY29sYWIgfHwge307CnNjb3BlLmdvb2dsZS5jb2xhYi5fZmlsZXMgPSB7CiAgX3VwbG9hZEZpbGVzLAogIF91cGxvYWRGaWxlc0NvbnRpbnVlLAp9Owp9KShzZWxmKTsK",
+              "ok": true,
+              "headers": [
+                [
+                  "content-type",
+                  "application/javascript"
+                ]
+              ],
+              "status": 200,
+              "status_text": ""
+            }
+          },
+          "base_uri": "https://localhost:8080/",
+          "height": 72
+        },
+        "id": "f5YX14Jm01Hx",
+        "outputId": "7f302346-2536-4f72-a58f-bd655bbcb182"
+      },
+      "source": [
+        "uploaded = files.upload()\n"
+      ],
+      "execution_count": 12,
+      "outputs": [
+        {
+          "output_type": "display_data",
+          "data": {
+            "text/html": [
+              "\n",
+              "     <input type=\"file\" id=\"files-2cf65456-d995-4278-9411-6058fc626f2d\" name=\"files[]\" multiple disabled\n",
+              "        style=\"border:none\" />\n",
+              "     <output id=\"result-2cf65456-d995-4278-9411-6058fc626f2d\">\n",
+              "      Upload widget is only available when the cell has been executed in the\n",
+              "      current browser session. Please rerun this cell to enable.\n",
+              "      </output>\n",
+              "      <script src=\"/nbextensions/google.colab/files.js\"></script> "
+            ],
+            "text/plain": [
+              "<IPython.core.display.HTML object>"
+            ]
+          },
+          "metadata": {
+            "tags": []
+          }
+        },
+        {
+          "output_type": "stream",
+          "text": [
+            "Saving test.csv to test.csv\n"
+          ],
+          "name": "stdout"
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/",
+          "height": 204
+        },
+        "id": "NFz6EMaB3-WP",
+        "outputId": "dc7d8d39-fe81-4f7c-a307-629c2a1ad5b9"
+      },
+      "source": [
+        "test= pd.read_csv(io.BytesIO(uploaded['test.csv']))\n",
+        "test.tail()"
+      ],
+      "execution_count": 13,
+      "outputs": [
+        {
+          "output_type": "execute_result",
+          "data": {
+            "text/html": [
+              "<div>\n",
+              "<style scoped>\n",
+              "    .dataframe tbody tr th:only-of-type {\n",
+              "        vertical-align: middle;\n",
+              "    }\n",
+              "\n",
+              "    .dataframe tbody tr th {\n",
+              "        vertical-align: top;\n",
+              "    }\n",
+              "\n",
+              "    .dataframe thead th {\n",
+              "        text-align: right;\n",
+              "    }\n",
+              "</style>\n",
+              "<table border=\"1\" class=\"dataframe\">\n",
+              "  <thead>\n",
+              "    <tr style=\"text-align: right;\">\n",
+              "      <th></th>\n",
+              "      <th>PassengerId</th>\n",
+              "      <th>Pclass</th>\n",
+              "      <th>Name</th>\n",
+              "      <th>Sex</th>\n",
+              "      <th>Age</th>\n",
+              "      <th>SibSp</th>\n",
+              "      <th>Parch</th>\n",
+              "      <th>Ticket</th>\n",
+              "      <th>Fare</th>\n",
+              "      <th>Cabin</th>\n",
+              "      <th>Embarked</th>\n",
+              "    </tr>\n",
+              "  </thead>\n",
+              "  <tbody>\n",
+              "    <tr>\n",
+              "      <th>413</th>\n",
+              "      <td>1305</td>\n",
+              "      <td>3</td>\n",
+              "      <td>Spector, Mr. Woolf</td>\n",
+              "      <td>male</td>\n",
+              "      <td>NaN</td>\n",
+              "      <td>0</td>\n",
+              "      <td>0</td>\n",
+              "      <td>A.5. 3236</td>\n",
+              "      <td>8.0500</td>\n",
+              "      <td>NaN</td>\n",
+              "      <td>S</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>414</th>\n",
+              "      <td>1306</td>\n",
+              "      <td>1</td>\n",
+              "      <td>Oliva y Ocana, Dona. Fermina</td>\n",
+              "      <td>female</td>\n",
+              "      <td>39.0</td>\n",
+              "      <td>0</td>\n",
+              "      <td>0</td>\n",
+              "      <td>PC 17758</td>\n",
+              "      <td>108.9000</td>\n",
+              "      <td>C105</td>\n",
+              "      <td>C</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>415</th>\n",
+              "      <td>1307</td>\n",
+              "      <td>3</td>\n",
+              "      <td>Saether, Mr. Simon Sivertsen</td>\n",
+              "      <td>male</td>\n",
+              "      <td>38.5</td>\n",
+              "      <td>0</td>\n",
+              "      <td>0</td>\n",
+              "      <td>SOTON/O.Q. 3101262</td>\n",
+              "      <td>7.2500</td>\n",
+              "      <td>NaN</td>\n",
+              "      <td>S</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>416</th>\n",
+              "      <td>1308</td>\n",
+              "      <td>3</td>\n",
+              "      <td>Ware, Mr. Frederick</td>\n",
+              "      <td>male</td>\n",
+              "      <td>NaN</td>\n",
+              "      <td>0</td>\n",
+              "      <td>0</td>\n",
+              "      <td>359309</td>\n",
+              "      <td>8.0500</td>\n",
+              "      <td>NaN</td>\n",
+              "      <td>S</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>417</th>\n",
+              "      <td>1309</td>\n",
+              "      <td>3</td>\n",
+              "      <td>Peter, Master. Michael J</td>\n",
+              "      <td>male</td>\n",
+              "      <td>NaN</td>\n",
+              "      <td>1</td>\n",
+              "      <td>1</td>\n",
+              "      <td>2668</td>\n",
+              "      <td>22.3583</td>\n",
+              "      <td>NaN</td>\n",
+              "      <td>C</td>\n",
+              "    </tr>\n",
+              "  </tbody>\n",
+              "</table>\n",
+              "</div>"
+            ],
+            "text/plain": [
+              "     PassengerId  Pclass                          Name  ...      Fare  Cabin  Embarked\n",
+              "413         1305       3            Spector, Mr. Woolf  ...    8.0500    NaN         S\n",
+              "414         1306       1  Oliva y Ocana, Dona. Fermina  ...  108.9000   C105         C\n",
+              "415         1307       3  Saether, Mr. Simon Sivertsen  ...    7.2500    NaN         S\n",
+              "416         1308       3           Ware, Mr. Frederick  ...    8.0500    NaN         S\n",
+              "417         1309       3      Peter, Master. Michael J  ...   22.3583    NaN         C\n",
+              "\n",
+              "[5 rows x 11 columns]"
+            ]
+          },
+          "metadata": {
+            "tags": []
+          },
+          "execution_count": 13
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "trusted": true,
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "nOrUk3YZ01Hy",
+        "outputId": "74a418ce-87c5-4ccd-e8b6-f0181b735e11"
+      },
+      "source": [
+        "train_df.info()"
+      ],
+      "execution_count": 14,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "text": [
+            "<class 'pandas.core.frame.DataFrame'>\n",
+            "RangeIndex: 891 entries, 0 to 890\n",
+            "Data columns (total 12 columns):\n",
+            " #   Column       Non-Null Count  Dtype  \n",
+            "---  ------       --------------  -----  \n",
+            " 0   PassengerId  891 non-null    int64  \n",
+            " 1   Survived     891 non-null    int64  \n",
+            " 2   Pclass       891 non-null    int64  \n",
+            " 3   Name         891 non-null    object \n",
+            " 4   Sex          891 non-null    object \n",
+            " 5   Age          714 non-null    float64\n",
+            " 6   SibSp        891 non-null    int64  \n",
+            " 7   Parch        891 non-null    int64  \n",
+            " 8   Ticket       891 non-null    object \n",
+            " 9   Fare         891 non-null    float64\n",
+            " 10  Cabin        204 non-null    object \n",
+            " 11  Embarked     889 non-null    object \n",
+            "dtypes: float64(2), int64(5), object(5)\n",
+            "memory usage: 83.7+ KB\n"
+          ],
+          "name": "stdout"
+        }
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "zWJ0cMw901Hz"
+      },
+      "source": [
+        "### Numerical Variables...let's deal with those"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "trusted": true,
+        "colab": {
+          "base_uri": "https://localhost:8080/",
+          "height": 297
+        },
+        "id": "tF_RA0yl01Hz",
+        "outputId": "1400368a-a7e8-42ab-f160-56ed7cb7e068"
+      },
+      "source": [
+        "train_df.describe()"
+      ],
+      "execution_count": 15,
+      "outputs": [
+        {
+          "output_type": "execute_result",
+          "data": {
+            "text/html": [
+              "<div>\n",
+              "<style scoped>\n",
+              "    .dataframe tbody tr th:only-of-type {\n",
+              "        vertical-align: middle;\n",
+              "    }\n",
+              "\n",
+              "    .dataframe tbody tr th {\n",
+              "        vertical-align: top;\n",
+              "    }\n",
+              "\n",
+              "    .dataframe thead th {\n",
+              "        text-align: right;\n",
+              "    }\n",
+              "</style>\n",
+              "<table border=\"1\" class=\"dataframe\">\n",
+              "  <thead>\n",
+              "    <tr style=\"text-align: right;\">\n",
+              "      <th></th>\n",
+              "      <th>PassengerId</th>\n",
+              "      <th>Survived</th>\n",
+              "      <th>Pclass</th>\n",
+              "      <th>Age</th>\n",
+              "      <th>SibSp</th>\n",
+              "      <th>Parch</th>\n",
+              "      <th>Fare</th>\n",
+              "    </tr>\n",
+              "  </thead>\n",
+              "  <tbody>\n",
+              "    <tr>\n",
+              "      <th>count</th>\n",
+              "      <td>891.000000</td>\n",
+              "      <td>891.000000</td>\n",
+              "      <td>891.000000</td>\n",
+              "      <td>714.000000</td>\n",
+              "      <td>891.000000</td>\n",
+              "      <td>891.000000</td>\n",
+              "      <td>891.000000</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>mean</th>\n",
+              "      <td>446.000000</td>\n",
+              "      <td>0.383838</td>\n",
+              "      <td>2.308642</td>\n",
+              "      <td>29.699118</td>\n",
+              "      <td>0.523008</td>\n",
+              "      <td>0.381594</td>\n",
+              "      <td>32.204208</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>std</th>\n",
+              "      <td>257.353842</td>\n",
+              "      <td>0.486592</td>\n",
+              "      <td>0.836071</td>\n",
+              "      <td>14.526497</td>\n",
+              "      <td>1.102743</td>\n",
+              "      <td>0.806057</td>\n",
+              "      <td>49.693429</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>min</th>\n",
+              "      <td>1.000000</td>\n",
+              "      <td>0.000000</td>\n",
+              "      <td>1.000000</td>\n",
+              "      <td>0.420000</td>\n",
+              "      <td>0.000000</td>\n",
+              "      <td>0.000000</td>\n",
+              "      <td>0.000000</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>25%</th>\n",
+              "      <td>223.500000</td>\n",
+              "      <td>0.000000</td>\n",
+              "      <td>2.000000</td>\n",
+              "      <td>20.125000</td>\n",
+              "      <td>0.000000</td>\n",
+              "      <td>0.000000</td>\n",
+              "      <td>7.910400</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>50%</th>\n",
+              "      <td>446.000000</td>\n",
+              "      <td>0.000000</td>\n",
+              "      <td>3.000000</td>\n",
+              "      <td>28.000000</td>\n",
+              "      <td>0.000000</td>\n",
+              "      <td>0.000000</td>\n",
+              "      <td>14.454200</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>75%</th>\n",
+              "      <td>668.500000</td>\n",
+              "      <td>1.000000</td>\n",
+              "      <td>3.000000</td>\n",
+              "      <td>38.000000</td>\n",
+              "      <td>1.000000</td>\n",
+              "      <td>0.000000</td>\n",
+              "      <td>31.000000</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>max</th>\n",
+              "      <td>891.000000</td>\n",
+              "      <td>1.000000</td>\n",
+              "      <td>3.000000</td>\n",
+              "      <td>80.000000</td>\n",
+              "      <td>8.000000</td>\n",
+              "      <td>6.000000</td>\n",
+              "      <td>512.329200</td>\n",
+              "    </tr>\n",
+              "  </tbody>\n",
+              "</table>\n",
+              "</div>"
+            ],
+            "text/plain": [
+              "       PassengerId    Survived      Pclass  ...       SibSp       Parch        Fare\n",
+              "count   891.000000  891.000000  891.000000  ...  891.000000  891.000000  891.000000\n",
+              "mean    446.000000    0.383838    2.308642  ...    0.523008    0.381594   32.204208\n",
+              "std     257.353842    0.486592    0.836071  ...    1.102743    0.806057   49.693429\n",
+              "min       1.000000    0.000000    1.000000  ...    0.000000    0.000000    0.000000\n",
+              "25%     223.500000    0.000000    2.000000  ...    0.000000    0.000000    7.910400\n",
+              "50%     446.000000    0.000000    3.000000  ...    0.000000    0.000000   14.454200\n",
+              "75%     668.500000    1.000000    3.000000  ...    1.000000    0.000000   31.000000\n",
+              "max     891.000000    1.000000    3.000000  ...    8.000000    6.000000  512.329200\n",
+              "\n",
+              "[8 rows x 7 columns]"
+            ]
+          },
+          "metadata": {
+            "tags": []
+          },
+          "execution_count": 15
+        }
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "3divJHiT01H0"
+      },
+      "source": [
+        "### Using the plots of missingno, we are able to see where the missing values are located in each column. Let's consider only the numerical variables"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "trusted": true,
+        "colab": {
+          "base_uri": "https://localhost:8080/",
+          "height": 852
+        },
+        "id": "9w00s6sz01H1",
+        "outputId": "c1ce3f2c-9a80-43dd-c32a-907065cfb613"
+      },
+      "source": [
+        "\n",
+        "num_variable = train_df.select_dtypes(include='number')\n",
+        "print(num_variable)\n",
+        "import missingno as msno\n",
+        "#msno.matrix(num_variable.drop('PassengerId', axis='columns').sample(100))  First 100 samples\n",
+        "msno.bar(num_variable.drop('PassengerId', axis='columns'))"
+      ],
+      "execution_count": 16,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "text": [
+            "     PassengerId  Survived  Pclass   Age  SibSp  Parch     Fare\n",
+            "0              1         0       3  22.0      1      0   7.2500\n",
+            "1              2         1       1  38.0      1      0  71.2833\n",
+            "2              3         1       3  26.0      0      0   7.9250\n",
+            "3              4         1       1  35.0      1      0  53.1000\n",
+            "4              5         0       3  35.0      0      0   8.0500\n",
+            "..           ...       ...     ...   ...    ...    ...      ...\n",
+            "886          887         0       2  27.0      0      0  13.0000\n",
+            "887          888         1       1  19.0      0      0  30.0000\n",
+            "888          889         0       3   NaN      1      2  23.4500\n",
+            "889          890         1       1  26.0      0      0  30.0000\n",
+            "890          891         0       3  32.0      0      0   7.7500\n",
+            "\n",
+            "[891 rows x 7 columns]\n"
+          ],
+          "name": "stdout"
+        },
+        {
+          "output_type": "execute_result",
+          "data": {
+            "text/plain": [
+              "<matplotlib.axes._subplots.AxesSubplot at 0x7fae12df7b10>"
+            ]
+          },
+          "metadata": {
+            "tags": []
+          },
+          "execution_count": 16
+        },
+        {
+          "output_type": "display_data",
+          "data": {
+            "image/png": "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\n",
+            "text/plain": [
+              "<Figure size 1728x720 with 3 Axes>"
+            ]
+          },
+          "metadata": {
+            "tags": [],
+            "needs_background": "light"
+          }
+        }
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "Pfv6GUb601H2"
+      },
+      "source": [
+        "## It is clear that there are some missing values from the age column. Lets fix that up with the mean of the column"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "trusted": true,
+        "colab": {
+          "base_uri": "https://localhost:8080/",
+          "height": 459
+        },
+        "id": "doXn05v_01H2",
+        "outputId": "560f2370-06e4-4b63-b5b7-b76aa04367c0"
+      },
+      "source": [
+        "plt.figure(figsize=(12,7))\n",
+        "sns.boxplot(x='Pclass', y='Age',data = test, palette= 'winter')"
+      ],
+      "execution_count": 17,
+      "outputs": [
+        {
+          "output_type": "execute_result",
+          "data": {
+            "text/plain": [
+              "<matplotlib.axes._subplots.AxesSubplot at 0x7fae124b5c90>"
+            ]
+          },
+          "metadata": {
+            "tags": []
+          },
+          "execution_count": 17
+        },
+        {
+          "output_type": "display_data",
+          "data": {
+            "image/png": "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\n",
+            "text/plain": [
+              "<Figure size 864x504 with 1 Axes>"
+            ]
+          },
+          "metadata": {
+            "tags": [],
+            "needs_background": "light"
+          }
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "trusted": true,
+        "id": "SZK6TFki01H3"
+      },
+      "source": [
+        "def impute_age(cols):\n",
+        "    Age = cols[0]\n",
+        "    Pclass = cols[1]\n",
+        "\n",
+        "    if pd.isnull(Age):\n",
+        "\n",
+        "      if Pclass == 1:\n",
+        "          return 42\n",
+        "\n",
+        "      elif Pclass == 2:\n",
+        "          return 26\n",
+        "\n",
+        "      else:\n",
+        "          return 23   \n",
+        "\n",
+        "    else:\n",
+        "       return Age"
+      ],
+      "execution_count": 18,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "trusted": true,
+        "id": "nZTaWlNB01H4"
+      },
+      "source": [
+        "test['Age'] = test[['Age','Pclass']].apply(impute_age,axis=1)"
+      ],
+      "execution_count": 41,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "trusted": true,
+        "colab": {
+          "base_uri": "https://localhost:8080/",
+          "height": 221
+        },
+        "id": "aTEDSlxS01H4",
+        "outputId": "e6b4eab5-28c7-4310-b256-d772909d4c8a"
+      },
+      "source": [
+        "#train_df['Age'].fillna(train_df['Age'].mean(), inplace=True)\n",
+        "age_mean = train_df['Age'].mean()\n",
+        "print(age_mean)\n",
+        "train_df['Age'].fillna(age_mean, inplace=True)\n",
+        "train_df.tail()\n",
+        "\n"
+      ],
+      "execution_count": 20,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "text": [
+            "29.69911764705882\n"
+          ],
+          "name": "stdout"
+        },
+        {
+          "output_type": "execute_result",
+          "data": {
+            "text/html": [
+              "<div>\n",
+              "<style scoped>\n",
+              "    .dataframe tbody tr th:only-of-type {\n",
+              "        vertical-align: middle;\n",
+              "    }\n",
+              "\n",
+              "    .dataframe tbody tr th {\n",
+              "        vertical-align: top;\n",
+              "    }\n",
+              "\n",
+              "    .dataframe thead th {\n",
+              "        text-align: right;\n",
+              "    }\n",
+              "</style>\n",
+              "<table border=\"1\" class=\"dataframe\">\n",
+              "  <thead>\n",
+              "    <tr style=\"text-align: right;\">\n",
+              "      <th></th>\n",
+              "      <th>PassengerId</th>\n",
+              "      <th>Survived</th>\n",
+              "      <th>Pclass</th>\n",
+              "      <th>Name</th>\n",
+              "      <th>Sex</th>\n",
+              "      <th>Age</th>\n",
+              "      <th>SibSp</th>\n",
+              "      <th>Parch</th>\n",
+              "      <th>Ticket</th>\n",
+              "      <th>Fare</th>\n",
+              "      <th>Cabin</th>\n",
+              "      <th>Embarked</th>\n",
+              "    </tr>\n",
+              "  </thead>\n",
+              "  <tbody>\n",
+              "    <tr>\n",
+              "      <th>886</th>\n",
+              "      <td>887</td>\n",
+              "      <td>0</td>\n",
+              "      <td>2</td>\n",
+              "      <td>Montvila, Rev. Juozas</td>\n",
+              "      <td>male</td>\n",
+              "      <td>27.000000</td>\n",
+              "      <td>0</td>\n",
+              "      <td>0</td>\n",
+              "      <td>211536</td>\n",
+              "      <td>13.00</td>\n",
+              "      <td>NaN</td>\n",
+              "      <td>S</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>887</th>\n",
+              "      <td>888</td>\n",
+              "      <td>1</td>\n",
+              "      <td>1</td>\n",
+              "      <td>Graham, Miss. Margaret Edith</td>\n",
+              "      <td>female</td>\n",
+              "      <td>19.000000</td>\n",
+              "      <td>0</td>\n",
+              "      <td>0</td>\n",
+              "      <td>112053</td>\n",
+              "      <td>30.00</td>\n",
+              "      <td>B42</td>\n",
+              "      <td>S</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>888</th>\n",
+              "      <td>889</td>\n",
+              "      <td>0</td>\n",
+              "      <td>3</td>\n",
+              "      <td>Johnston, Miss. Catherine Helen \"Carrie\"</td>\n",
+              "      <td>female</td>\n",
+              "      <td>29.699118</td>\n",
+              "      <td>1</td>\n",
+              "      <td>2</td>\n",
+              "      <td>W./C. 6607</td>\n",
+              "      <td>23.45</td>\n",
+              "      <td>NaN</td>\n",
+              "      <td>S</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>889</th>\n",
+              "      <td>890</td>\n",
+              "      <td>1</td>\n",
+              "      <td>1</td>\n",
+              "      <td>Behr, Mr. Karl Howell</td>\n",
+              "      <td>male</td>\n",
+              "      <td>26.000000</td>\n",
+              "      <td>0</td>\n",
+              "      <td>0</td>\n",
+              "      <td>111369</td>\n",
+              "      <td>30.00</td>\n",
+              "      <td>C148</td>\n",
+              "      <td>C</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>890</th>\n",
+              "      <td>891</td>\n",
+              "      <td>0</td>\n",
+              "      <td>3</td>\n",
+              "      <td>Dooley, Mr. Patrick</td>\n",
+              "      <td>male</td>\n",
+              "      <td>32.000000</td>\n",
+              "      <td>0</td>\n",
+              "      <td>0</td>\n",
+              "      <td>370376</td>\n",
+              "      <td>7.75</td>\n",
+              "      <td>NaN</td>\n",
+              "      <td>Q</td>\n",
+              "    </tr>\n",
+              "  </tbody>\n",
+              "</table>\n",
+              "</div>"
+            ],
+            "text/plain": [
+              "     PassengerId  Survived  Pclass  ...   Fare Cabin  Embarked\n",
+              "886          887         0       2  ...  13.00   NaN         S\n",
+              "887          888         1       1  ...  30.00   B42         S\n",
+              "888          889         0       3  ...  23.45   NaN         S\n",
+              "889          890         1       1  ...  30.00  C148         C\n",
+              "890          891         0       3  ...   7.75   NaN         Q\n",
+              "\n",
+              "[5 rows x 12 columns]"
+            ]
+          },
+          "metadata": {
+            "tags": []
+          },
+          "execution_count": 20
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "trusted": true,
+        "colab": {
+          "base_uri": "https://localhost:8080/",
+          "height": 204
+        },
+        "id": "9WMHsKoH01H5",
+        "outputId": "90c70288-0197-4826-afa0-fffde830340c"
+      },
+      "source": [
+        "train_df.head()"
+      ],
+      "execution_count": 21,
+      "outputs": [
+        {
+          "output_type": "execute_result",
+          "data": {
+            "text/html": [
+              "<div>\n",
+              "<style scoped>\n",
+              "    .dataframe tbody tr th:only-of-type {\n",
+              "        vertical-align: middle;\n",
+              "    }\n",
+              "\n",
+              "    .dataframe tbody tr th {\n",
+              "        vertical-align: top;\n",
+              "    }\n",
+              "\n",
+              "    .dataframe thead th {\n",
+              "        text-align: right;\n",
+              "    }\n",
+              "</style>\n",
+              "<table border=\"1\" class=\"dataframe\">\n",
+              "  <thead>\n",
+              "    <tr style=\"text-align: right;\">\n",
+              "      <th></th>\n",
+              "      <th>PassengerId</th>\n",
+              "      <th>Survived</th>\n",
+              "      <th>Pclass</th>\n",
+              "      <th>Name</th>\n",
+              "      <th>Sex</th>\n",
+              "      <th>Age</th>\n",
+              "      <th>SibSp</th>\n",
+              "      <th>Parch</th>\n",
+              "      <th>Ticket</th>\n",
+              "      <th>Fare</th>\n",
+              "      <th>Cabin</th>\n",
+              "      <th>Embarked</th>\n",
+              "    </tr>\n",
+              "  </thead>\n",
+              "  <tbody>\n",
+              "    <tr>\n",
+              "      <th>0</th>\n",
+              "      <td>1</td>\n",
+              "      <td>0</td>\n",
+              "      <td>3</td>\n",
+              "      <td>Braund, Mr. Owen Harris</td>\n",
+              "      <td>male</td>\n",
+              "      <td>22.0</td>\n",
+              "      <td>1</td>\n",
+              "      <td>0</td>\n",
+              "      <td>A/5 21171</td>\n",
+              "      <td>7.2500</td>\n",
+              "      <td>NaN</td>\n",
+              "      <td>S</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>1</th>\n",
+              "      <td>2</td>\n",
+              "      <td>1</td>\n",
+              "      <td>1</td>\n",
+              "      <td>Cumings, Mrs. John Bradley (Florence Briggs Th...</td>\n",
+              "      <td>female</td>\n",
+              "      <td>38.0</td>\n",
+              "      <td>1</td>\n",
+              "      <td>0</td>\n",
+              "      <td>PC 17599</td>\n",
+              "      <td>71.2833</td>\n",
+              "      <td>C85</td>\n",
+              "      <td>C</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>2</th>\n",
+              "      <td>3</td>\n",
+              "      <td>1</td>\n",
+              "      <td>3</td>\n",
+              "      <td>Heikkinen, Miss. Laina</td>\n",
+              "      <td>female</td>\n",
+              "      <td>26.0</td>\n",
+              "      <td>0</td>\n",
+              "      <td>0</td>\n",
+              "      <td>STON/O2. 3101282</td>\n",
+              "      <td>7.9250</td>\n",
+              "      <td>NaN</td>\n",
+              "      <td>S</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>3</th>\n",
+              "      <td>4</td>\n",
+              "      <td>1</td>\n",
+              "      <td>1</td>\n",
+              "      <td>Futrelle, Mrs. Jacques Heath (Lily May Peel)</td>\n",
+              "      <td>female</td>\n",
+              "      <td>35.0</td>\n",
+              "      <td>1</td>\n",
+              "      <td>0</td>\n",
+              "      <td>113803</td>\n",
+              "      <td>53.1000</td>\n",
+              "      <td>C123</td>\n",
+              "      <td>S</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>4</th>\n",
+              "      <td>5</td>\n",
+              "      <td>0</td>\n",
+              "      <td>3</td>\n",
+              "      <td>Allen, Mr. William Henry</td>\n",
+              "      <td>male</td>\n",
+              "      <td>35.0</td>\n",
+              "      <td>0</td>\n",
+              "      <td>0</td>\n",
+              "      <td>373450</td>\n",
+              "      <td>8.0500</td>\n",
+              "      <td>NaN</td>\n",
+              "      <td>S</td>\n",
+              "    </tr>\n",
+              "  </tbody>\n",
+              "</table>\n",
+              "</div>"
+            ],
+            "text/plain": [
+              "   PassengerId  Survived  Pclass  ...     Fare Cabin  Embarked\n",
+              "0            1         0       3  ...   7.2500   NaN         S\n",
+              "1            2         1       1  ...  71.2833   C85         C\n",
+              "2            3         1       3  ...   7.9250   NaN         S\n",
+              "3            4         1       1  ...  53.1000  C123         S\n",
+              "4            5         0       3  ...   8.0500   NaN         S\n",
+              "\n",
+              "[5 rows x 12 columns]"
+            ]
+          },
+          "metadata": {
+            "tags": []
+          },
+          "execution_count": 21
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "trusted": true,
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "gtHcFbjU01H5",
+        "outputId": "b3ebc958-7801-4be3-fd52-867a99e7acbe"
+      },
+      "source": [
+        "for col in train_df.columns:\n",
+        "    print('There are {0} missing values in {1}'.format(train_df[col].isna().sum(), col))"
+      ],
+      "execution_count": 22,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "text": [
+            "There are 0 missing values in PassengerId\n",
+            "There are 0 missing values in Survived\n",
+            "There are 0 missing values in Pclass\n",
+            "There are 0 missing values in Name\n",
+            "There are 0 missing values in Sex\n",
+            "There are 0 missing values in Age\n",
+            "There are 0 missing values in SibSp\n",
+            "There are 0 missing values in Parch\n",
+            "There are 0 missing values in Ticket\n",
+            "There are 0 missing values in Fare\n",
+            "There are 687 missing values in Cabin\n",
+            "There are 2 missing values in Embarked\n"
+          ],
+          "name": "stdout"
+        }
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "tFpAXtkf01H6"
+      },
+      "source": [
+        "## I am using standardscaler to normalize the 'Age and Fare' variable"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "trusted": true,
+        "colab": {
+          "base_uri": "https://localhost:8080/",
+          "height": 527
+        },
+        "id": "V2u6SOuG01H6",
+        "outputId": "64701559-c06b-4b39-cfe1-d5d5a684d761"
+      },
+      "source": [
+        "\n",
+        "train_df.info()\n",
+        "std_scale = StandardScaler()\n",
+        "train_df['Age'] = std_scale.fit_transform(train_df[['Age']])\n",
+        "train_df['Fare'] = std_scale.fit_transform(train_df[['Fare']])\n",
+        "train_df['SibSp'] = std_scale.fit_transform(train_df[['SibSp']])\n",
+        "train_df['Parch'] = std_scale.fit_transform(train_df[['Parch']])\n",
+        "train_df.tail()\n"
+      ],
+      "execution_count": 23,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "text": [
+            "<class 'pandas.core.frame.DataFrame'>\n",
+            "RangeIndex: 891 entries, 0 to 890\n",
+            "Data columns (total 12 columns):\n",
+            " #   Column       Non-Null Count  Dtype  \n",
+            "---  ------       --------------  -----  \n",
+            " 0   PassengerId  891 non-null    int64  \n",
+            " 1   Survived     891 non-null    int64  \n",
+            " 2   Pclass       891 non-null    int64  \n",
+            " 3   Name         891 non-null    object \n",
+            " 4   Sex          891 non-null    object \n",
+            " 5   Age          891 non-null    float64\n",
+            " 6   SibSp        891 non-null    int64  \n",
+            " 7   Parch        891 non-null    int64  \n",
+            " 8   Ticket       891 non-null    object \n",
+            " 9   Fare         891 non-null    float64\n",
+            " 10  Cabin        204 non-null    object \n",
+            " 11  Embarked     889 non-null    object \n",
+            "dtypes: float64(2), int64(5), object(5)\n",
+            "memory usage: 83.7+ KB\n"
+          ],
+          "name": "stdout"
+        },
+        {
+          "output_type": "execute_result",
+          "data": {
+            "text/html": [
+              "<div>\n",
+              "<style scoped>\n",
+              "    .dataframe tbody tr th:only-of-type {\n",
+              "        vertical-align: middle;\n",
+              "    }\n",
+              "\n",
+              "    .dataframe tbody tr th {\n",
+              "        vertical-align: top;\n",
+              "    }\n",
+              "\n",
+              "    .dataframe thead th {\n",
+              "        text-align: right;\n",
+              "    }\n",
+              "</style>\n",
+              "<table border=\"1\" class=\"dataframe\">\n",
+              "  <thead>\n",
+              "    <tr style=\"text-align: right;\">\n",
+              "      <th></th>\n",
+              "      <th>PassengerId</th>\n",
+              "      <th>Survived</th>\n",
+              "      <th>Pclass</th>\n",
+              "      <th>Name</th>\n",
+              "      <th>Sex</th>\n",
+              "      <th>Age</th>\n",
+              "      <th>SibSp</th>\n",
+              "      <th>Parch</th>\n",
+              "      <th>Ticket</th>\n",
+              "      <th>Fare</th>\n",
+              "      <th>Cabin</th>\n",
+              "      <th>Embarked</th>\n",
+              "    </tr>\n",
+              "  </thead>\n",
+              "  <tbody>\n",
+              "    <tr>\n",
+              "      <th>886</th>\n",
+              "      <td>887</td>\n",
+              "      <td>0</td>\n",
+              "      <td>2</td>\n",
+              "      <td>Montvila, Rev. Juozas</td>\n",
+              "      <td>male</td>\n",
+              "      <td>-0.207709</td>\n",
+              "      <td>-0.474545</td>\n",
+              "      <td>-0.473674</td>\n",
+              "      <td>211536</td>\n",
+              "      <td>-0.386671</td>\n",
+              "      <td>NaN</td>\n",
+              "      <td>S</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>887</th>\n",
+              "      <td>888</td>\n",
+              "      <td>1</td>\n",
+              "      <td>1</td>\n",
+              "      <td>Graham, Miss. Margaret Edith</td>\n",
+              "      <td>female</td>\n",
+              "      <td>-0.823344</td>\n",
+              "      <td>-0.474545</td>\n",
+              "      <td>-0.473674</td>\n",
+              "      <td>112053</td>\n",
+              "      <td>-0.044381</td>\n",
+              "      <td>B42</td>\n",
+              "      <td>S</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>888</th>\n",
+              "      <td>889</td>\n",
+              "      <td>0</td>\n",
+              "      <td>3</td>\n",
+              "      <td>Johnston, Miss. Catherine Helen \"Carrie\"</td>\n",
+              "      <td>female</td>\n",
+              "      <td>0.000000</td>\n",
+              "      <td>0.432793</td>\n",
+              "      <td>2.008933</td>\n",
+              "      <td>W./C. 6607</td>\n",
+              "      <td>-0.176263</td>\n",
+              "      <td>NaN</td>\n",
+              "      <td>S</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>889</th>\n",
+              "      <td>890</td>\n",
+              "      <td>1</td>\n",
+              "      <td>1</td>\n",
+              "      <td>Behr, Mr. Karl Howell</td>\n",
+              "      <td>male</td>\n",
+              "      <td>-0.284663</td>\n",
+              "      <td>-0.474545</td>\n",
+              "      <td>-0.473674</td>\n",
+              "      <td>111369</td>\n",
+              "      <td>-0.044381</td>\n",
+              "      <td>C148</td>\n",
+              "      <td>C</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>890</th>\n",
+              "      <td>891</td>\n",
+              "      <td>0</td>\n",
+              "      <td>3</td>\n",
+              "      <td>Dooley, Mr. Patrick</td>\n",
+              "      <td>male</td>\n",
+              "      <td>0.177063</td>\n",
+              "      <td>-0.474545</td>\n",
+              "      <td>-0.473674</td>\n",
+              "      <td>370376</td>\n",
+              "      <td>-0.492378</td>\n",
+              "      <td>NaN</td>\n",
+              "      <td>Q</td>\n",
+              "    </tr>\n",
+              "  </tbody>\n",
+              "</table>\n",
+              "</div>"
+            ],
+            "text/plain": [
+              "     PassengerId  Survived  Pclass  ...      Fare Cabin  Embarked\n",
+              "886          887         0       2  ... -0.386671   NaN         S\n",
+              "887          888         1       1  ... -0.044381   B42         S\n",
+              "888          889         0       3  ... -0.176263   NaN         S\n",
+              "889          890         1       1  ... -0.044381  C148         C\n",
+              "890          891         0       3  ... -0.492378   NaN         Q\n",
+              "\n",
+              "[5 rows x 12 columns]"
+            ]
+          },
+          "metadata": {
+            "tags": []
+          },
+          "execution_count": 23
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "trusted": true,
+        "colab": {
+          "base_uri": "https://localhost:8080/",
+          "height": 204
+        },
+        "id": "8TEBjCb301H7",
+        "outputId": "3695acc6-2f86-449d-e813-dda50bd027cf"
+      },
+      "source": [
+        "df = train_df.loc[train_df.Embarked.notna(),['Survived', 'Pclass','Sex','Age','SibSp','Parch',\\\n",
+        "                                             'Fare', 'Cabin','Embarked']]\n",
+        "df.tail()"
+      ],
+      "execution_count": 24,
+      "outputs": [
+        {
+          "output_type": "execute_result",
+          "data": {
+            "text/html": [
+              "<div>\n",
+              "<style scoped>\n",
+              "    .dataframe tbody tr th:only-of-type {\n",
+              "        vertical-align: middle;\n",
+              "    }\n",
+              "\n",
+              "    .dataframe tbody tr th {\n",
+              "        vertical-align: top;\n",
+              "    }\n",
+              "\n",
+              "    .dataframe thead th {\n",
+              "        text-align: right;\n",
+              "    }\n",
+              "</style>\n",
+              "<table border=\"1\" class=\"dataframe\">\n",
+              "  <thead>\n",
+              "    <tr style=\"text-align: right;\">\n",
+              "      <th></th>\n",
+              "      <th>Survived</th>\n",
+              "      <th>Pclass</th>\n",
+              "      <th>Sex</th>\n",
+              "      <th>Age</th>\n",
+              "      <th>SibSp</th>\n",
+              "      <th>Parch</th>\n",
+              "      <th>Fare</th>\n",
+              "      <th>Cabin</th>\n",
+              "      <th>Embarked</th>\n",
+              "    </tr>\n",
+              "  </thead>\n",
+              "  <tbody>\n",
+              "    <tr>\n",
+              "      <th>886</th>\n",
+              "      <td>0</td>\n",
+              "      <td>2</td>\n",
+              "      <td>male</td>\n",
+              "      <td>-0.207709</td>\n",
+              "      <td>-0.474545</td>\n",
+              "      <td>-0.473674</td>\n",
+              "      <td>-0.386671</td>\n",
+              "      <td>NaN</td>\n",
+              "      <td>S</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>887</th>\n",
+              "      <td>1</td>\n",
+              "      <td>1</td>\n",
+              "      <td>female</td>\n",
+              "      <td>-0.823344</td>\n",
+              "      <td>-0.474545</td>\n",
+              "      <td>-0.473674</td>\n",
+              "      <td>-0.044381</td>\n",
+              "      <td>B42</td>\n",
+              "      <td>S</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>888</th>\n",
+              "      <td>0</td>\n",
+              "      <td>3</td>\n",
+              "      <td>female</td>\n",
+              "      <td>0.000000</td>\n",
+              "      <td>0.432793</td>\n",
+              "      <td>2.008933</td>\n",
+              "      <td>-0.176263</td>\n",
+              "      <td>NaN</td>\n",
+              "      <td>S</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>889</th>\n",
+              "      <td>1</td>\n",
+              "      <td>1</td>\n",
+              "      <td>male</td>\n",
+              "      <td>-0.284663</td>\n",
+              "      <td>-0.474545</td>\n",
+              "      <td>-0.473674</td>\n",
+              "      <td>-0.044381</td>\n",
+              "      <td>C148</td>\n",
+              "      <td>C</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>890</th>\n",
+              "      <td>0</td>\n",
+              "      <td>3</td>\n",
+              "      <td>male</td>\n",
+              "      <td>0.177063</td>\n",
+              "      <td>-0.474545</td>\n",
+              "      <td>-0.473674</td>\n",
+              "      <td>-0.492378</td>\n",
+              "      <td>NaN</td>\n",
+              "      <td>Q</td>\n",
+              "    </tr>\n",
+              "  </tbody>\n",
+              "</table>\n",
+              "</div>"
+            ],
+            "text/plain": [
+              "     Survived  Pclass     Sex       Age  ...     Parch      Fare  Cabin Embarked\n",
+              "886         0       2    male -0.207709  ... -0.473674 -0.386671    NaN        S\n",
+              "887         1       1  female -0.823344  ... -0.473674 -0.044381    B42        S\n",
+              "888         0       3  female  0.000000  ...  2.008933 -0.176263    NaN        S\n",
+              "889         1       1    male -0.284663  ... -0.473674 -0.044381   C148        C\n",
+              "890         0       3    male  0.177063  ... -0.473674 -0.492378    NaN        Q\n",
+              "\n",
+              "[5 rows x 9 columns]"
+            ]
+          },
+          "metadata": {
+            "tags": []
+          },
+          "execution_count": 24
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "trusted": true,
+        "colab": {
+          "base_uri": "https://localhost:8080/",
+          "height": 204
+        },
+        "id": "0MwlgmiD01H9",
+        "outputId": "b38d49c1-5ff7-42c1-f690-af74c6a8144f"
+      },
+      "source": [
+        "X = df.drop(['Survived', 'Cabin'],axis='columns')  # NOTE....i dropped Age here\n",
+        "X.head()\n"
+      ],
+      "execution_count": 25,
+      "outputs": [
+        {
+          "output_type": "execute_result",
+          "data": {
+            "text/html": [
+              "<div>\n",
+              "<style scoped>\n",
+              "    .dataframe tbody tr th:only-of-type {\n",
+              "        vertical-align: middle;\n",
+              "    }\n",
+              "\n",
+              "    .dataframe tbody tr th {\n",
+              "        vertical-align: top;\n",
+              "    }\n",
+              "\n",
+              "    .dataframe thead th {\n",
+              "        text-align: right;\n",
+              "    }\n",
+              "</style>\n",
+              "<table border=\"1\" class=\"dataframe\">\n",
+              "  <thead>\n",
+              "    <tr style=\"text-align: right;\">\n",
+              "      <th></th>\n",
+              "      <th>Pclass</th>\n",
+              "      <th>Sex</th>\n",
+              "      <th>Age</th>\n",
+              "      <th>SibSp</th>\n",
+              "      <th>Parch</th>\n",
+              "      <th>Fare</th>\n",
+              "      <th>Embarked</th>\n",
+              "    </tr>\n",
+              "  </thead>\n",
+              "  <tbody>\n",
+              "    <tr>\n",
+              "      <th>0</th>\n",
+              "      <td>3</td>\n",
+              "      <td>male</td>\n",
+              "      <td>-0.592481</td>\n",
+              "      <td>0.432793</td>\n",
+              "      <td>-0.473674</td>\n",
+              "      <td>-0.502445</td>\n",
+              "      <td>S</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>1</th>\n",
+              "      <td>1</td>\n",
+              "      <td>female</td>\n",
+              "      <td>0.638789</td>\n",
+              "      <td>0.432793</td>\n",
+              "      <td>-0.473674</td>\n",
+              "      <td>0.786845</td>\n",
+              "      <td>C</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>2</th>\n",
+              "      <td>3</td>\n",
+              "      <td>female</td>\n",
+              "      <td>-0.284663</td>\n",
+              "      <td>-0.474545</td>\n",
+              "      <td>-0.473674</td>\n",
+              "      <td>-0.488854</td>\n",
+              "      <td>S</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>3</th>\n",
+              "      <td>1</td>\n",
+              "      <td>female</td>\n",
+              "      <td>0.407926</td>\n",
+              "      <td>0.432793</td>\n",
+              "      <td>-0.473674</td>\n",
+              "      <td>0.420730</td>\n",
+              "      <td>S</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>4</th>\n",
+              "      <td>3</td>\n",
+              "      <td>male</td>\n",
+              "      <td>0.407926</td>\n",
+              "      <td>-0.474545</td>\n",
+              "      <td>-0.473674</td>\n",
+              "      <td>-0.486337</td>\n",
+              "      <td>S</td>\n",
+              "    </tr>\n",
+              "  </tbody>\n",
+              "</table>\n",
+              "</div>"
+            ],
+            "text/plain": [
+              "   Pclass     Sex       Age     SibSp     Parch      Fare Embarked\n",
+              "0       3    male -0.592481  0.432793 -0.473674 -0.502445        S\n",
+              "1       1  female  0.638789  0.432793 -0.473674  0.786845        C\n",
+              "2       3  female -0.284663 -0.474545 -0.473674 -0.488854        S\n",
+              "3       1  female  0.407926  0.432793 -0.473674  0.420730        S\n",
+              "4       3    male  0.407926 -0.474545 -0.473674 -0.486337        S"
+            ]
+          },
+          "metadata": {
+            "tags": []
+          },
+          "execution_count": 25
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "trusted": true,
+        "colab": {
+          "base_uri": "https://localhost:8080/",
+          "height": 204
+        },
+        "id": "Mahautp601H-",
+        "outputId": "4346e5e1-763a-4b7f-8ca2-d010441e5f98"
+      },
+      "source": [
+        "le = LabelEncoder()\n",
+        "X['Sex'] = le.fit_transform(X['Sex'])\n",
+        "X['Embarked'] = le.fit_transform(X['Embarked'])\n",
+        "X.head()\n",
+        "\n"
+      ],
+      "execution_count": 26,
+      "outputs": [
+        {
+          "output_type": "execute_result",
+          "data": {
+            "text/html": [
+              "<div>\n",
+              "<style scoped>\n",
+              "    .dataframe tbody tr th:only-of-type {\n",
+              "        vertical-align: middle;\n",
+              "    }\n",
+              "\n",
+              "    .dataframe tbody tr th {\n",
+              "        vertical-align: top;\n",
+              "    }\n",
+              "\n",
+              "    .dataframe thead th {\n",
+              "        text-align: right;\n",
+              "    }\n",
+              "</style>\n",
+              "<table border=\"1\" class=\"dataframe\">\n",
+              "  <thead>\n",
+              "    <tr style=\"text-align: right;\">\n",
+              "      <th></th>\n",
+              "      <th>Pclass</th>\n",
+              "      <th>Sex</th>\n",
+              "      <th>Age</th>\n",
+              "      <th>SibSp</th>\n",
+              "      <th>Parch</th>\n",
+              "      <th>Fare</th>\n",
+              "      <th>Embarked</th>\n",
+              "    </tr>\n",
+              "  </thead>\n",
+              "  <tbody>\n",
+              "    <tr>\n",
+              "      <th>0</th>\n",
+              "      <td>3</td>\n",
+              "      <td>1</td>\n",
+              "      <td>-0.592481</td>\n",
+              "      <td>0.432793</td>\n",
+              "      <td>-0.473674</td>\n",
+              "      <td>-0.502445</td>\n",
+              "      <td>2</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>1</th>\n",
+              "      <td>1</td>\n",
+              "      <td>0</td>\n",
+              "      <td>0.638789</td>\n",
+              "      <td>0.432793</td>\n",
+              "      <td>-0.473674</td>\n",
+              "      <td>0.786845</td>\n",
+              "      <td>0</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>2</th>\n",
+              "      <td>3</td>\n",
+              "      <td>0</td>\n",
+              "      <td>-0.284663</td>\n",
+              "      <td>-0.474545</td>\n",
+              "      <td>-0.473674</td>\n",
+              "      <td>-0.488854</td>\n",
+              "      <td>2</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>3</th>\n",
+              "      <td>1</td>\n",
+              "      <td>0</td>\n",
+              "      <td>0.407926</td>\n",
+              "      <td>0.432793</td>\n",
+              "      <td>-0.473674</td>\n",
+              "      <td>0.420730</td>\n",
+              "      <td>2</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>4</th>\n",
+              "      <td>3</td>\n",
+              "      <td>1</td>\n",
+              "      <td>0.407926</td>\n",
+              "      <td>-0.474545</td>\n",
+              "      <td>-0.473674</td>\n",
+              "      <td>-0.486337</td>\n",
+              "      <td>2</td>\n",
+              "    </tr>\n",
+              "  </tbody>\n",
+              "</table>\n",
+              "</div>"
+            ],
+            "text/plain": [
+              "   Pclass  Sex       Age     SibSp     Parch      Fare  Embarked\n",
+              "0       3    1 -0.592481  0.432793 -0.473674 -0.502445         2\n",
+              "1       1    0  0.638789  0.432793 -0.473674  0.786845         0\n",
+              "2       3    0 -0.284663 -0.474545 -0.473674 -0.488854         2\n",
+              "3       1    0  0.407926  0.432793 -0.473674  0.420730         2\n",
+              "4       3    1  0.407926 -0.474545 -0.473674 -0.486337         2"
+            ]
+          },
+          "metadata": {
+            "tags": []
+          },
+          "execution_count": 26
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "trusted": true,
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "RbO5HlLu01H_",
+        "outputId": "93506d2a-c43c-4ce0-fadc-5c30caf1491f"
+      },
+      "source": [
+        "columnTransformer = ColumnTransformer([('encoder',\n",
+        "                                        OneHotEncoder(),\n",
+        "                                        [0,1,6])],   # 6 turn to 5 because of Age\n",
+        "                                      remainder='passthrough')\n",
+        "X = np.array(columnTransformer.fit_transform(X))#dtype = np.str\n",
+        "print(X)"
+      ],
+      "execution_count": 27,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "text": [
+            "[[ 0.          0.          1.         ...  0.43279337 -0.47367361\n",
+            "  -0.50244517]\n",
+            " [ 1.          0.          0.         ...  0.43279337 -0.47367361\n",
+            "   0.78684529]\n",
+            " [ 0.          0.          1.         ... -0.4745452  -0.47367361\n",
+            "  -0.48885426]\n",
+            " ...\n",
+            " [ 0.          0.          1.         ...  0.43279337  2.00893337\n",
+            "  -0.17626324]\n",
+            " [ 1.          0.          0.         ... -0.4745452  -0.47367361\n",
+            "  -0.04438104]\n",
+            " [ 0.          0.          1.         ... -0.4745452  -0.47367361\n",
+            "  -0.49237783]]\n"
+          ],
+          "name": "stdout"
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "trusted": true,
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "JB0o5iLY01IB",
+        "outputId": "528e6e68-df07-4362-b6ab-694fc8a49148"
+      },
+      "source": [
+        "y = df.Survived\n",
+        "y.head()"
+      ],
+      "execution_count": 28,
+      "outputs": [
+        {
+          "output_type": "execute_result",
+          "data": {
+            "text/plain": [
+              "0    0\n",
+              "1    1\n",
+              "2    1\n",
+              "3    1\n",
+              "4    0\n",
+              "Name: Survived, dtype: int64"
+            ]
+          },
+          "metadata": {
+            "tags": []
+          },
+          "execution_count": 28
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "trusted": true,
+        "colab": {
+          "base_uri": "https://localhost:8080/",
+          "height": 204
+        },
+        "id": "x-YdccSD01IC",
+        "outputId": "7165af74-edc0-423b-cfb6-9fbe9cec49b7"
+      },
+      "source": [
+        "kfold = StratifiedKFold(n_splits=10)\n",
+        "random_state = 42\n",
+        "classifiers = []\n",
+        "classifiers.append(SVC(random_state=random_state))\n",
+        "classifiers.append(DecisionTreeClassifier(random_state=random_state))\n",
+        "classifiers.append(RandomForestClassifier(random_state=random_state))\n",
+        "classifiers.append(GradientBoostingClassifier(random_state=random_state))\n",
+        "classifiers.append(ExtraTreesClassifier())\n",
+        "cv_results = []\n",
+        "for classifier in classifiers :\n",
+        "    cv_results.append(cross_val_score(classifier, X, y, scoring = \"accuracy\", cv = kfold, n_jobs=4))\n",
+        "    \n",
+        "cv_means = []\n",
+        "cv_std = []\n",
+        "for cv_result in cv_results:\n",
+        "    cv_means.append(cv_result.mean())\n",
+        "    cv_std.append(cv_result.std())\n",
+        "\n",
+        "cv_res = pd.DataFrame({\"Algorithm\":[\"SVC\",\"DecisionTree\",\"RandomForest\",\"GradientBoosting\",\"ExtraTrees\"],\"CrossValMeans\":cv_means,\"CrossValerrors\": cv_std})\n",
+        "cv_res\n"
+      ],
+      "execution_count": 29,
+      "outputs": [
+        {
+          "output_type": "execute_result",
+          "data": {
+            "text/html": [
+              "<div>\n",
+              "<style scoped>\n",
+              "    .dataframe tbody tr th:only-of-type {\n",
+              "        vertical-align: middle;\n",
+              "    }\n",
+              "\n",
+              "    .dataframe tbody tr th {\n",
+              "        vertical-align: top;\n",
+              "    }\n",
+              "\n",
+              "    .dataframe thead th {\n",
+              "        text-align: right;\n",
+              "    }\n",
+              "</style>\n",
+              "<table border=\"1\" class=\"dataframe\">\n",
+              "  <thead>\n",
+              "    <tr style=\"text-align: right;\">\n",
+              "      <th></th>\n",
+              "      <th>Algorithm</th>\n",
+              "      <th>CrossValMeans</th>\n",
+              "      <th>CrossValerrors</th>\n",
+              "    </tr>\n",
+              "  </thead>\n",
+              "  <tbody>\n",
+              "    <tr>\n",
+              "      <th>0</th>\n",
+              "      <td>SVC</td>\n",
+              "      <td>0.823430</td>\n",
+              "      <td>0.033203</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>1</th>\n",
+              "      <td>DecisionTree</td>\n",
+              "      <td>0.772791</td>\n",
+              "      <td>0.039745</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>2</th>\n",
+              "      <td>RandomForest</td>\n",
+              "      <td>0.806563</td>\n",
+              "      <td>0.039020</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>3</th>\n",
+              "      <td>GradientBoosting</td>\n",
+              "      <td>0.831269</td>\n",
+              "      <td>0.040826</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>4</th>\n",
+              "      <td>ExtraTrees</td>\n",
+              "      <td>0.799770</td>\n",
+              "      <td>0.044622</td>\n",
+              "    </tr>\n",
+              "  </tbody>\n",
+              "</table>\n",
+              "</div>"
+            ],
+            "text/plain": [
+              "          Algorithm  CrossValMeans  CrossValerrors\n",
+              "0               SVC       0.823430        0.033203\n",
+              "1      DecisionTree       0.772791        0.039745\n",
+              "2      RandomForest       0.806563        0.039020\n",
+              "3  GradientBoosting       0.831269        0.040826\n",
+              "4        ExtraTrees       0.799770        0.044622"
+            ]
+          },
+          "metadata": {
+            "tags": []
+          },
+          "execution_count": 29
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "trusted": true,
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "ZV6LP-nm01ID",
+        "outputId": "67175686-f172-4d8d-c00f-25d9f59312c0"
+      },
+      "source": [
+        "# define the model\n",
+        "model = GradientBoostingClassifier()\n",
+        "# fit the model on the whole dataset\n",
+        "model.fit(X, y)\n"
+      ],
+      "execution_count": 30,
+      "outputs": [
+        {
+          "output_type": "execute_result",
+          "data": {
+            "text/plain": [
+              "GradientBoostingClassifier(ccp_alpha=0.0, criterion='friedman_mse', init=None,\n",
+              "                           learning_rate=0.1, loss='deviance', max_depth=3,\n",
+              "                           max_features=None, max_leaf_nodes=None,\n",
+              "                           min_impurity_decrease=0.0, min_impurity_split=None,\n",
+              "                           min_samples_leaf=1, min_samples_split=2,\n",
+              "                           min_weight_fraction_leaf=0.0, n_estimators=100,\n",
+              "                           n_iter_no_change=None, presort='deprecated',\n",
+              "                           random_state=None, subsample=1.0, tol=0.0001,\n",
+              "                           validation_fraction=0.1, verbose=0,\n",
+              "                           warm_start=False)"
+            ]
+          },
+          "metadata": {
+            "tags": []
+          },
+          "execution_count": 30
+        }
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "-StLC75401IE"
+      },
+      "source": [
+        "Let's prepare the test data also"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "trusted": true,
+        "colab": {
+          "base_uri": "https://localhost:8080/",
+          "height": 204
+        },
+        "id": "ENEQrpvr01IE",
+        "outputId": "22310a0e-8660-46fd-90c4-9bef5b941c88"
+      },
+      "source": [
+        "test.head()"
+      ],
+      "execution_count": 31,
+      "outputs": [
+        {
+          "output_type": "execute_result",
+          "data": {
+            "text/html": [
+              "<div>\n",
+              "<style scoped>\n",
+              "    .dataframe tbody tr th:only-of-type {\n",
+              "        vertical-align: middle;\n",
+              "    }\n",
+              "\n",
+              "    .dataframe tbody tr th {\n",
+              "        vertical-align: top;\n",
+              "    }\n",
+              "\n",
+              "    .dataframe thead th {\n",
+              "        text-align: right;\n",
+              "    }\n",
+              "</style>\n",
+              "<table border=\"1\" class=\"dataframe\">\n",
+              "  <thead>\n",
+              "    <tr style=\"text-align: right;\">\n",
+              "      <th></th>\n",
+              "      <th>PassengerId</th>\n",
+              "      <th>Pclass</th>\n",
+              "      <th>Name</th>\n",
+              "      <th>Sex</th>\n",
+              "      <th>Age</th>\n",
+              "      <th>SibSp</th>\n",
+              "      <th>Parch</th>\n",
+              "      <th>Ticket</th>\n",
+              "      <th>Fare</th>\n",
+              "      <th>Cabin</th>\n",
+              "      <th>Embarked</th>\n",
+              "    </tr>\n",
+              "  </thead>\n",
+              "  <tbody>\n",
+              "    <tr>\n",
+              "      <th>0</th>\n",
+              "      <td>892</td>\n",
+              "      <td>3</td>\n",
+              "      <td>Kelly, Mr. James</td>\n",
+              "      <td>male</td>\n",
+              "      <td>34.5</td>\n",
+              "      <td>0</td>\n",
+              "      <td>0</td>\n",
+              "      <td>330911</td>\n",
+              "      <td>7.8292</td>\n",
+              "      <td>NaN</td>\n",
+              "      <td>Q</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>1</th>\n",
+              "      <td>893</td>\n",
+              "      <td>3</td>\n",
+              "      <td>Wilkes, Mrs. James (Ellen Needs)</td>\n",
+              "      <td>female</td>\n",
+              "      <td>47.0</td>\n",
+              "      <td>1</td>\n",
+              "      <td>0</td>\n",
+              "      <td>363272</td>\n",
+              "      <td>7.0000</td>\n",
+              "      <td>NaN</td>\n",
+              "      <td>S</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>2</th>\n",
+              "      <td>894</td>\n",
+              "      <td>2</td>\n",
+              "      <td>Myles, Mr. Thomas Francis</td>\n",
+              "      <td>male</td>\n",
+              "      <td>62.0</td>\n",
+              "      <td>0</td>\n",
+              "      <td>0</td>\n",
+              "      <td>240276</td>\n",
+              "      <td>9.6875</td>\n",
+              "      <td>NaN</td>\n",
+              "      <td>Q</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>3</th>\n",
+              "      <td>895</td>\n",
+              "      <td>3</td>\n",
+              "      <td>Wirz, Mr. Albert</td>\n",
+              "      <td>male</td>\n",
+              "      <td>27.0</td>\n",
+              "      <td>0</td>\n",
+              "      <td>0</td>\n",
+              "      <td>315154</td>\n",
+              "      <td>8.6625</td>\n",
+              "      <td>NaN</td>\n",
+              "      <td>S</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>4</th>\n",
+              "      <td>896</td>\n",
+              "      <td>3</td>\n",
+              "      <td>Hirvonen, Mrs. Alexander (Helga E Lindqvist)</td>\n",
+              "      <td>female</td>\n",
+              "      <td>22.0</td>\n",
+              "      <td>1</td>\n",
+              "      <td>1</td>\n",
+              "      <td>3101298</td>\n",
+              "      <td>12.2875</td>\n",
+              "      <td>NaN</td>\n",
+              "      <td>S</td>\n",
+              "    </tr>\n",
+              "  </tbody>\n",
+              "</table>\n",
+              "</div>"
+            ],
+            "text/plain": [
+              "   PassengerId  Pclass  ... Cabin Embarked\n",
+              "0          892       3  ...   NaN        Q\n",
+              "1          893       3  ...   NaN        S\n",
+              "2          894       2  ...   NaN        Q\n",
+              "3          895       3  ...   NaN        S\n",
+              "4          896       3  ...   NaN        S\n",
+              "\n",
+              "[5 rows x 11 columns]"
+            ]
+          },
+          "metadata": {
+            "tags": []
+          },
+          "execution_count": 31
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "trusted": true,
+        "colab": {
+          "base_uri": "https://localhost:8080/",
+          "height": 204
+        },
+        "id": "qlPyzY6201IE",
+        "outputId": "0170a84a-70e9-4310-bab7-243885d1cf05"
+      },
+      "source": [
+        "X_new = test.drop(['PassengerId', 'Name','Ticket', 'Cabin'], axis='columns')\n",
+        "X_new.head()"
+      ],
+      "execution_count": 32,
+      "outputs": [
+        {
+          "output_type": "execute_result",
+          "data": {
+            "text/html": [
+              "<div>\n",
+              "<style scoped>\n",
+              "    .dataframe tbody tr th:only-of-type {\n",
+              "        vertical-align: middle;\n",
+              "    }\n",
+              "\n",
+              "    .dataframe tbody tr th {\n",
+              "        vertical-align: top;\n",
+              "    }\n",
+              "\n",
+              "    .dataframe thead th {\n",
+              "        text-align: right;\n",
+              "    }\n",
+              "</style>\n",
+              "<table border=\"1\" class=\"dataframe\">\n",
+              "  <thead>\n",
+              "    <tr style=\"text-align: right;\">\n",
+              "      <th></th>\n",
+              "      <th>Pclass</th>\n",
+              "      <th>Sex</th>\n",
+              "      <th>Age</th>\n",
+              "      <th>SibSp</th>\n",
+              "      <th>Parch</th>\n",
+              "      <th>Fare</th>\n",
+              "      <th>Embarked</th>\n",
+              "    </tr>\n",
+              "  </thead>\n",
+              "  <tbody>\n",
+              "    <tr>\n",
+              "      <th>0</th>\n",
+              "      <td>3</td>\n",
+              "      <td>male</td>\n",
+              "      <td>34.5</td>\n",
+              "      <td>0</td>\n",
+              "      <td>0</td>\n",
+              "      <td>7.8292</td>\n",
+              "      <td>Q</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>1</th>\n",
+              "      <td>3</td>\n",
+              "      <td>female</td>\n",
+              "      <td>47.0</td>\n",
+              "      <td>1</td>\n",
+              "      <td>0</td>\n",
+              "      <td>7.0000</td>\n",
+              "      <td>S</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>2</th>\n",
+              "      <td>2</td>\n",
+              "      <td>male</td>\n",
+              "      <td>62.0</td>\n",
+              "      <td>0</td>\n",
+              "      <td>0</td>\n",
+              "      <td>9.6875</td>\n",
+              "      <td>Q</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>3</th>\n",
+              "      <td>3</td>\n",
+              "      <td>male</td>\n",
+              "      <td>27.0</td>\n",
+              "      <td>0</td>\n",
+              "      <td>0</td>\n",
+              "      <td>8.6625</td>\n",
+              "      <td>S</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>4</th>\n",
+              "      <td>3</td>\n",
+              "      <td>female</td>\n",
+              "      <td>22.0</td>\n",
+              "      <td>1</td>\n",
+              "      <td>1</td>\n",
+              "      <td>12.2875</td>\n",
+              "      <td>S</td>\n",
+              "    </tr>\n",
+              "  </tbody>\n",
+              "</table>\n",
+              "</div>"
+            ],
+            "text/plain": [
+              "   Pclass     Sex   Age  SibSp  Parch     Fare Embarked\n",
+              "0       3    male  34.5      0      0   7.8292        Q\n",
+              "1       3  female  47.0      1      0   7.0000        S\n",
+              "2       2    male  62.0      0      0   9.6875        Q\n",
+              "3       3    male  27.0      0      0   8.6625        S\n",
+              "4       3  female  22.0      1      1  12.2875        S"
+            ]
+          },
+          "metadata": {
+            "tags": []
+          },
+          "execution_count": 32
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "trusted": true,
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "8oiHrQHX01IF",
+        "outputId": "2512b4c6-d1e3-489f-c8aa-89eb6ea58e61"
+      },
+      "source": [
+        "for i in X_new:\n",
+        "    print('There are {0} missing values in {1}'.format(X_new[i].isna().sum(), i))"
+      ],
+      "execution_count": 33,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "text": [
+            "There are 0 missing values in Pclass\n",
+            "There are 0 missing values in Sex\n",
+            "There are 0 missing values in Age\n",
+            "There are 0 missing values in SibSp\n",
+            "There are 0 missing values in Parch\n",
+            "There are 1 missing values in Fare\n",
+            "There are 0 missing values in Embarked\n"
+          ],
+          "name": "stdout"
+        }
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "3ygTzej_01IF"
+      },
+      "source": [
+        "Let's Fix the missing values in Fare and Age"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "trusted": true,
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "w5fyFCyG01IG",
+        "outputId": "2e12f74c-fc3a-464a-85c3-fc049c47b6bd"
+      },
+      "source": [
+        "X_new['Fare'] = X_new['Fare'].replace(np.nan, 7.75)\n",
+        "X_new['Fare'].isna().sum()"
+      ],
+      "execution_count": 34,
+      "outputs": [
+        {
+          "output_type": "execute_result",
+          "data": {
+            "text/plain": [
+              "0"
+            ]
+          },
+          "metadata": {
+            "tags": []
+          },
+          "execution_count": 34
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "trusted": true,
+        "colab": {
+          "base_uri": "https://localhost:8080/",
+          "height": 442
+        },
+        "id": "iMjbDB5G01IH",
+        "outputId": "960aaa21-0058-4647-fcf1-e7739ae457a0"
+      },
+      "source": [
+        "X_new.info()\n",
+        "std_scale = StandardScaler()\n",
+        "X_new['Age'] = std_scale.fit_transform(X_new[['Age']])\n",
+        "X_new['Fare'] = std_scale.fit_transform(X_new[['Fare']])\n",
+        "X_new['SibSp'] = std_scale.fit_transform(X_new[['SibSp']])\n",
+        "X_new['Parch'] = std_scale.fit_transform(X_new[['Parch']])\n",
+        "X_new.tail()"
+      ],
+      "execution_count": 35,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "text": [
+            "<class 'pandas.core.frame.DataFrame'>\n",
+            "RangeIndex: 418 entries, 0 to 417\n",
+            "Data columns (total 7 columns):\n",
+            " #   Column    Non-Null Count  Dtype  \n",
+            "---  ------    --------------  -----  \n",
+            " 0   Pclass    418 non-null    int64  \n",
+            " 1   Sex       418 non-null    object \n",
+            " 2   Age       418 non-null    float64\n",
+            " 3   SibSp     418 non-null    int64  \n",
+            " 4   Parch     418 non-null    int64  \n",
+            " 5   Fare      418 non-null    float64\n",
+            " 6   Embarked  418 non-null    object \n",
+            "dtypes: float64(2), int64(3), object(2)\n",
+            "memory usage: 23.0+ KB\n"
+          ],
+          "name": "stdout"
+        },
+        {
+          "output_type": "execute_result",
+          "data": {
+            "text/html": [
+              "<div>\n",
+              "<style scoped>\n",
+              "    .dataframe tbody tr th:only-of-type {\n",
+              "        vertical-align: middle;\n",
+              "    }\n",
+              "\n",
+              "    .dataframe tbody tr th {\n",
+              "        vertical-align: top;\n",
+              "    }\n",
+              "\n",
+              "    .dataframe thead th {\n",
+              "        text-align: right;\n",
+              "    }\n",
+              "</style>\n",
+              "<table border=\"1\" class=\"dataframe\">\n",
+              "  <thead>\n",
+              "    <tr style=\"text-align: right;\">\n",
+              "      <th></th>\n",
+              "      <th>Pclass</th>\n",
+              "      <th>Sex</th>\n",
+              "      <th>Age</th>\n",
+              "      <th>SibSp</th>\n",
+              "      <th>Parch</th>\n",
+              "      <th>Fare</th>\n",
+              "      <th>Embarked</th>\n",
+              "    </tr>\n",
+              "  </thead>\n",
+              "  <tbody>\n",
+              "    <tr>\n",
+              "      <th>413</th>\n",
+              "      <td>3</td>\n",
+              "      <td>male</td>\n",
+              "      <td>-0.476543</td>\n",
+              "      <td>-0.499470</td>\n",
+              "      <td>-0.400248</td>\n",
+              "      <td>-0.493105</td>\n",
+              "      <td>S</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>414</th>\n",
+              "      <td>1</td>\n",
+              "      <td>female</td>\n",
+              "      <td>0.749037</td>\n",
+              "      <td>-0.499470</td>\n",
+              "      <td>-0.400248</td>\n",
+              "      <td>1.314557</td>\n",
+              "      <td>C</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>415</th>\n",
+              "      <td>3</td>\n",
+              "      <td>male</td>\n",
+              "      <td>0.710737</td>\n",
+              "      <td>-0.499470</td>\n",
+              "      <td>-0.400248</td>\n",
+              "      <td>-0.507445</td>\n",
+              "      <td>S</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>416</th>\n",
+              "      <td>3</td>\n",
+              "      <td>male</td>\n",
+              "      <td>-0.476543</td>\n",
+              "      <td>-0.499470</td>\n",
+              "      <td>-0.400248</td>\n",
+              "      <td>-0.493105</td>\n",
+              "      <td>S</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>417</th>\n",
+              "      <td>3</td>\n",
+              "      <td>male</td>\n",
+              "      <td>-0.476543</td>\n",
+              "      <td>0.616992</td>\n",
+              "      <td>0.619896</td>\n",
+              "      <td>-0.236640</td>\n",
+              "      <td>C</td>\n",
+              "    </tr>\n",
+              "  </tbody>\n",
+              "</table>\n",
+              "</div>"
+            ],
+            "text/plain": [
+              "     Pclass     Sex       Age     SibSp     Parch      Fare Embarked\n",
+              "413       3    male -0.476543 -0.499470 -0.400248 -0.493105        S\n",
+              "414       1  female  0.749037 -0.499470 -0.400248  1.314557        C\n",
+              "415       3    male  0.710737 -0.499470 -0.400248 -0.507445        S\n",
+              "416       3    male -0.476543 -0.499470 -0.400248 -0.493105        S\n",
+              "417       3    male -0.476543  0.616992  0.619896 -0.236640        C"
+            ]
+          },
+          "metadata": {
+            "tags": []
+          },
+          "execution_count": 35
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "trusted": true,
+        "colab": {
+          "base_uri": "https://localhost:8080/",
+          "height": 204
+        },
+        "id": "9_W_tCZz01II",
+        "outputId": "3d0ce98f-68e8-4b0b-a9b4-e79573eb8295"
+      },
+      "source": [
+        "le = LabelEncoder()\n",
+        "X_new['Sex'] = le.fit_transform(X_new['Sex'])\n",
+        "X_new['Embarked'] = le.fit_transform(X_new['Embarked'])\n",
+        "X_new.head()\n"
+      ],
+      "execution_count": 36,
+      "outputs": [
+        {
+          "output_type": "execute_result",
+          "data": {
+            "text/html": [
+              "<div>\n",
+              "<style scoped>\n",
+              "    .dataframe tbody tr th:only-of-type {\n",
+              "        vertical-align: middle;\n",
+              "    }\n",
+              "\n",
+              "    .dataframe tbody tr th {\n",
+              "        vertical-align: top;\n",
+              "    }\n",
+              "\n",
+              "    .dataframe thead th {\n",
+              "        text-align: right;\n",
+              "    }\n",
+              "</style>\n",
+              "<table border=\"1\" class=\"dataframe\">\n",
+              "  <thead>\n",
+              "    <tr style=\"text-align: right;\">\n",
+              "      <th></th>\n",
+              "      <th>Pclass</th>\n",
+              "      <th>Sex</th>\n",
+              "      <th>Age</th>\n",
+              "      <th>SibSp</th>\n",
+              "      <th>Parch</th>\n",
+              "      <th>Fare</th>\n",
+              "      <th>Embarked</th>\n",
+              "    </tr>\n",
+              "  </thead>\n",
+              "  <tbody>\n",
+              "    <tr>\n",
+              "      <th>0</th>\n",
+              "      <td>3</td>\n",
+              "      <td>1</td>\n",
+              "      <td>0.404342</td>\n",
+              "      <td>-0.499470</td>\n",
+              "      <td>-0.400248</td>\n",
+              "      <td>-0.497063</td>\n",
+              "      <td>1</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>1</th>\n",
+              "      <td>3</td>\n",
+              "      <td>0</td>\n",
+              "      <td>1.361826</td>\n",
+              "      <td>0.616992</td>\n",
+              "      <td>-0.400248</td>\n",
+              "      <td>-0.511926</td>\n",
+              "      <td>2</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>2</th>\n",
+              "      <td>2</td>\n",
+              "      <td>1</td>\n",
+              "      <td>2.510807</td>\n",
+              "      <td>-0.499470</td>\n",
+              "      <td>-0.400248</td>\n",
+              "      <td>-0.463754</td>\n",
+              "      <td>1</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>3</th>\n",
+              "      <td>3</td>\n",
+              "      <td>1</td>\n",
+              "      <td>-0.170148</td>\n",
+              "      <td>-0.499470</td>\n",
+              "      <td>-0.400248</td>\n",
+              "      <td>-0.482127</td>\n",
+              "      <td>2</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>4</th>\n",
+              "      <td>3</td>\n",
+              "      <td>0</td>\n",
+              "      <td>-0.553142</td>\n",
+              "      <td>0.616992</td>\n",
+              "      <td>0.619896</td>\n",
+              "      <td>-0.417151</td>\n",
+              "      <td>2</td>\n",
+              "    </tr>\n",
+              "  </tbody>\n",
+              "</table>\n",
+              "</div>"
+            ],
+            "text/plain": [
+              "   Pclass  Sex       Age     SibSp     Parch      Fare  Embarked\n",
+              "0       3    1  0.404342 -0.499470 -0.400248 -0.497063         1\n",
+              "1       3    0  1.361826  0.616992 -0.400248 -0.511926         2\n",
+              "2       2    1  2.510807 -0.499470 -0.400248 -0.463754         1\n",
+              "3       3    1 -0.170148 -0.499470 -0.400248 -0.482127         2\n",
+              "4       3    0 -0.553142  0.616992  0.619896 -0.417151         2"
+            ]
+          },
+          "metadata": {
+            "tags": []
+          },
+          "execution_count": 36
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "trusted": true,
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "xPOJPiax01IJ",
+        "outputId": "71e7f063-3028-46c1-9408-2dc34697df86"
+      },
+      "source": [
+        "columnTransformer2 = ColumnTransformer([('encoder',\n",
+        "                                        OneHotEncoder(),\n",
+        "                                        [0,1,6])],   # 6 turn to 5 because of Age\n",
+        "                                      remainder='passthrough')\n",
+        "X_new = np.array(columnTransformer.fit_transform(X_new))#dtype = np.str\n",
+        "print(X_new)"
+      ],
+      "execution_count": 37,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "text": [
+            "[[ 0.          0.          1.         ... -0.49947002 -0.4002477\n",
+            "  -0.49706313]\n",
+            " [ 0.          0.          1.         ...  0.61699237 -0.4002477\n",
+            "  -0.51192594]\n",
+            " [ 0.          1.          0.         ... -0.49947002 -0.4002477\n",
+            "  -0.46375447]\n",
+            " ...\n",
+            " [ 0.          0.          1.         ... -0.49947002 -0.4002477\n",
+            "  -0.50744487]\n",
+            " [ 0.          0.          1.         ... -0.49947002 -0.4002477\n",
+            "  -0.49310546]\n",
+            " [ 0.          0.          1.         ...  0.61699237  0.61989583\n",
+            "  -0.23663968]]\n"
+          ],
+          "name": "stdout"
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "trusted": true,
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "evze_6fg01IK",
+        "outputId": "05e6147b-03c4-4831-c749-2315281909e5"
+      },
+      "source": [
+        "z = test['PassengerId']\n",
+        "print(z)"
+      ],
+      "execution_count": 38,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "text": [
+            "0       892\n",
+            "1       893\n",
+            "2       894\n",
+            "3       895\n",
+            "4       896\n",
+            "       ... \n",
+            "413    1305\n",
+            "414    1306\n",
+            "415    1307\n",
+            "416    1308\n",
+            "417    1309\n",
+            "Name: PassengerId, Length: 418, dtype: int64\n"
+          ],
+          "name": "stdout"
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "trusted": true,
+        "colab": {
+          "base_uri": "https://localhost:8080/",
+          "height": 255
+        },
+        "id": "PHcHkJ7A01IL",
+        "outputId": "4ad60517-ac6d-4d5e-a9ed-8a623aaf63f1"
+      },
+      "source": [
+        "prediction = model.predict(X_new)\n",
+        "submission = pd.DataFrame({\"PassengerId\": z, \"Survived\": prediction})\n",
+        "print(submission)\n",
+        "submission.to_csv('advancesubmission.csv', index=False)\n",
+        "files.download('advancesubmission.csv')\n"
+      ],
+      "execution_count": 40,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "text": [
+            "     PassengerId  Survived\n",
+            "0            892         0\n",
+            "1            893         0\n",
+            "2            894         0\n",
+            "3            895         0\n",
+            "4            896         0\n",
+            "..           ...       ...\n",
+            "413         1305         0\n",
+            "414         1306         1\n",
+            "415         1307         0\n",
+            "416         1308         0\n",
+            "417         1309         0\n",
+            "\n",
+            "[418 rows x 2 columns]\n"
+          ],
+          "name": "stdout"
+        },
+        {
+          "output_type": "display_data",
+          "data": {
+            "application/javascript": [
+              "\n",
+              "    async function download(id, filename, size) {\n",
+              "      if (!google.colab.kernel.accessAllowed) {\n",
+              "        return;\n",
+              "      }\n",
+              "      const div = document.createElement('div');\n",
+              "      const label = document.createElement('label');\n",
+              "      label.textContent = `Downloading \"${filename}\": `;\n",
+              "      div.appendChild(label);\n",
+              "      const progress = document.createElement('progress');\n",
+              "      progress.max = size;\n",
+              "      div.appendChild(progress);\n",
+              "      document.body.appendChild(div);\n",
+              "\n",
+              "      const buffers = [];\n",
+              "      let downloaded = 0;\n",
+              "\n",
+              "      const channel = await google.colab.kernel.comms.open(id);\n",
+              "      // Send a message to notify the kernel that we're ready.\n",
+              "      channel.send({})\n",
+              "\n",
+              "      for await (const message of channel.messages) {\n",
+              "        // Send a message to notify the kernel that we're ready.\n",
+              "        channel.send({})\n",
+              "        if (message.buffers) {\n",
+              "          for (const buffer of message.buffers) {\n",
+              "            buffers.push(buffer);\n",
+              "            downloaded += buffer.byteLength;\n",
+              "            progress.value = downloaded;\n",
+              "          }\n",
+              "        }\n",
+              "      }\n",
+              "      const blob = new Blob(buffers, {type: 'application/binary'});\n",
+              "      const a = document.createElement('a');\n",
+              "      a.href = window.URL.createObjectURL(blob);\n",
+              "      a.download = filename;\n",
+              "      div.appendChild(a);\n",
+              "      a.click();\n",
+              "      div.remove();\n",
+              "    }\n",
+              "  "
+            ],
+            "text/plain": [
+              "<IPython.core.display.Javascript object>"
+            ]
+          },
+          "metadata": {
+            "tags": []
+          }
+        },
+        {
+          "output_type": "display_data",
+          "data": {
+            "application/javascript": [
+              "download(\"download_ec26ebaf-ff48-4ad1-bd49-0ec1d2d45d5f\", \"advancesubmission.csv\", 2839)"
+            ],
+            "text/plain": [
+              "<IPython.core.display.Javascript object>"
+            ]
+          },
+          "metadata": {
+            "tags": []
+          }
+        }
+      ]
+    }
+  ]
+}
